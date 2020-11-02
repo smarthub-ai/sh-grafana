@@ -12,7 +12,6 @@ const LoginLogo: FC<BrandComponentProps> = ({ className }) => {
 };
 
 const LoginBackground: FC<BrandComponentProps> = ({ className, children }) => {
-  const theme = useTheme();
   const background = css`
     background: url(public/img/smarthub_bg.svg);
     background-size: cover;

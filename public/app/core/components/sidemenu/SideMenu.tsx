@@ -11,7 +11,7 @@ export class SideMenu extends PureComponent {
   };
 
   render() {
-    return [      
+    return [
       <div className="sidemenu__logo_small_breakpoint" onClick={this.toggleSideMenuSmallBreakpoint} key="hamburger">
         <Icon name="bars" size="xl" />
         <span className="sidemenu__close">
