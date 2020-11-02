@@ -1,4 +1,5 @@
 $mobile-menu-breakpoint: md;
+$side-menu-bg-override: rgb(250, 250, 250);
 
 .sidemenu {
   position: fixed;
@@ -21,7 +22,7 @@ $mobile-menu-breakpoint: md;
   }
 
   @include media-breakpoint-up($mobile-menu-breakpoint) {
-    background: $side-menu-bg;
+    background: $side-menu-bg-override;
     height: auto;
     box-shadow: $side-menu-shadow;
     position: relative;

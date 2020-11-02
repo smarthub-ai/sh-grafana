@@ -6,7 +6,11 @@ import { getLocationSrv } from '@grafana/runtime';
 
 const TopSection: FC<any> = () => {
   const navTree = _.cloneDeep(config.bootData.navTree);
-  const mainLinks = _.filter(navTree, item => !item.hideFromMenu);
+
+  const unwantedOptions: any = { explore: true, alerting: true };
+  const filteredTree = _.filter(navTree, (item: any) => !Boolean(unwantedOptions[item.id]));
+
+  const mainLinks = _.filter(filteredTree, item => !item.hideFromMenu);
   const searchLink = {
     text: 'Search',
     icon: 'search',
