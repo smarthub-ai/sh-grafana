@@ -8,13 +8,12 @@ export interface BrandComponentProps {
 }
 
 const LoginLogo: FC<BrandComponentProps> = ({ className }) => {
-  return <img className={className} src="public/img/grafana_icon.svg" alt="Grafana" />;
+  return <img className={className} src="public/img/smarthub_icon.png" alt="Grafana" />;
 };
 
 const LoginBackground: FC<BrandComponentProps> = ({ className, children }) => {
-  const theme = useTheme();
   const background = css`
-    background: url(public/img/login_background_${theme.isDark ? 'dark' : 'light'}.svg);
+    background: url(public/img/smarthub_bg.svg);
     background-size: cover;
   `;
 
@@ -22,7 +21,7 @@ const LoginBackground: FC<BrandComponentProps> = ({ className, children }) => {
 };
 
 const MenuLogo: FC<BrandComponentProps> = ({ className }) => {
-  return <img className={className} src="public/img/grafana_icon.svg" alt="Grafana" />;
+  return <img className={className} src="public/img/smarthub_icon.png" alt="SmartHub.ai" />;
 };
 
 const LoginBoxBackground = () => {
@@ -38,8 +37,8 @@ export class Branding {
   static LoginBackground = LoginBackground;
   static MenuLogo = MenuLogo;
   static LoginBoxBackground = LoginBoxBackground;
-  static AppTitle = 'Grafana';
-  static LoginTitle = 'Welcome to Grafana';
+  static AppTitle = 'SmartHub.ai';
+  static LoginTitle = 'Welcome to SmartHub.ai';
   static GetLoginSubTitle = () => {
     const slogans = [
       "Don't get in the way of the data",
