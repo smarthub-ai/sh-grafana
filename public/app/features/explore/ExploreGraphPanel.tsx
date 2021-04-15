@@ -1,5 +1,5 @@
 import React, { PureComponent } from 'react';
-import { css, cx } from 'emotion';
+import { css, cx } from '@emotion/css';
 import { GrafanaTheme, TimeZone, AbsoluteTimeRange, GraphSeriesXY, dateTime } from '@grafana/data';
 
 import {
@@ -113,10 +113,9 @@ class UnThemedExploreGraphPanel extends PureComponent<Props, State> {
           return (
             <GraphWithLegend
               ariaLabel={ariaLabel}
-              displayMode={LegendDisplayMode.List}
+              legendDisplayMode={LegendDisplayMode.List}
               height={height}
-              isLegendVisible={true}
-              placement={'under'}
+              placement={'bottom'}
               width={width}
               timeRange={timeRange}
               timeZone={timeZone}

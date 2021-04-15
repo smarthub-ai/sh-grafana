@@ -1,5 +1,5 @@
 import React, { PureComponent, ChangeEvent } from 'react';
-import { css } from 'emotion';
+import { css } from '@emotion/css';
 import {
   Threshold,
   sortThresholds,
@@ -18,6 +18,7 @@ import { RadioButtonGroup } from '../Forms/RadioButtonGroup/RadioButtonGroup';
 import { Button } from '../Button';
 import { FullWidthButtonContainer } from '../Button/FullWidthButtonContainer';
 import { Label } from '../Forms/Label';
+import { isNumber } from 'lodash';
 
 const modes: Array<SelectableValue<ThresholdsMode>> = [
   { value: ThresholdsMode.Absolute, label: 'Absolute', description: 'Pick thresholds based on the absolute values' },
@@ -59,7 +60,7 @@ export class ThresholdsEditor extends PureComponent<Props, State> {
       nextValue = steps[steps.length - 1].value + 10;
     }
 
-    const color = colors.filter(c => !steps.some(t => t.color === c))[1];
+    const color = colors.filter((c) => !steps.some((t) => t.color === c))[1];
 
     const add = {
       value: nextValue,
@@ -90,7 +91,7 @@ export class ThresholdsEditor extends PureComponent<Props, State> {
       return;
     }
 
-    this.setState({ steps: steps.filter(t => t.key !== threshold.key) }, this.onChange);
+    this.setState({ steps: steps.filter((t) => t.key !== threshold.key) }, this.onChange);
   };
 
   onChangeThresholdValue = (event: ChangeEvent<HTMLInputElement>, threshold: ThresholdWithKey) => {
@@ -98,7 +99,7 @@ export class ThresholdsEditor extends PureComponent<Props, State> {
     const parsedValue = parseFloat(cleanValue);
     const value = isNaN(parsedValue) ? '' : parsedValue;
 
-    const steps = this.state.steps.map(t => {
+    const steps = this.state.steps.map((t) => {
       if (t.key === threshold.key) {
         t = { ...t, value: value as number };
       }
@@ -116,7 +117,7 @@ export class ThresholdsEditor extends PureComponent<Props, State> {
   onChangeThresholdColor = (threshold: ThresholdWithKey, color: string) => {
     const { steps } = this.state;
 
-    const newThresholds = steps.map(t => {
+    const newThresholds = steps.map((t) => {
       if (t.key === threshold.key) {
         t = { ...t, color: color };
       }
@@ -158,7 +159,7 @@ export class ThresholdsEditor extends PureComponent<Props, State> {
               <div className={styles.colorPicker}>
                 <ColorPicker
                   color={threshold.color}
-                  onChange={color => this.onChangeThresholdColor(threshold, color)}
+                  onChange={(color) => this.onChangeThresholdColor(threshold, color)}
                   enableNamedColors={true}
                 />
               </div>
@@ -183,7 +184,7 @@ export class ThresholdsEditor extends PureComponent<Props, State> {
               <div className={styles.colorPicker}>
                 <ColorPicker
                   color={threshold.color}
-                  onChange={color => this.onChangeThresholdColor(threshold, color)}
+                  onChange={(color) => this.onChangeThresholdColor(threshold, color)}
                   enableNamedColors={true}
                 />
               </div>
@@ -204,15 +205,20 @@ export class ThresholdsEditor extends PureComponent<Props, State> {
 
     return (
       <ThemeContext.Consumer>
-        {theme => {
+        {(theme) => {
           const styles = getStyles(theme);
           return (
             <div className={styles.wrapper}>
-              <FullWidthButtonContainer className={styles.addButton}>
-                <Button size="sm" icon="plus" onClick={() => this.onAddThreshold()} variant="secondary">
-                  Add threshold
-                </Button>
-              </FullWidthButtonContainer>
+              <Button
+                size="sm"
+                icon="plus"
+                onClick={() => this.onAddThreshold()}
+                variant="secondary"
+                className={styles.addButton}
+                fullWidth
+              >
+                Add threshold
+              </Button>
               <div className={styles.thresholds}>
                 {steps
                   .slice(0)
@@ -249,20 +255,22 @@ function toThresholdsWithKey(steps?: Threshold[]): ThresholdWithKey[] {
     steps = [{ value: -Infinity, color: 'green' }];
   }
 
-  return steps.map(t => {
-    return {
-      color: t.color,
-      value: t.value === null ? -Infinity : t.value,
-      key: counter++,
-    };
-  });
+  return steps
+    .filter((t, i) => isNumber(t.value) || i === 0)
+    .map((t) => {
+      return {
+        color: t.color,
+        value: t.value === null ? -Infinity : t.value,
+        key: counter++,
+      };
+    });
 }
 
 export function thresholdsWithoutKey(thresholds: ThresholdsConfig, steps: ThresholdWithKey[]): ThresholdsConfig {
   const mode = thresholds.mode ?? ThresholdsMode.Absolute;
   return {
     mode,
-    steps: steps.map(t => {
+    steps: steps.map((t) => {
       const { key, ...rest } = t;
       return rest; // everything except key
     }),

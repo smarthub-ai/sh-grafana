@@ -7,7 +7,7 @@ import config from 'app/core/config';
 // Types
 import { TextOptions } from './types';
 import { CustomScrollbar, stylesFactory } from '@grafana/ui';
-import { css, cx } from 'emotion';
+import { css, cx } from '@emotion/css';
 import DangerouslySetHtmlContent from 'dangerously-set-html-content';
 
 interface Props extends PanelProps<TextOptions> {}
@@ -43,7 +43,8 @@ export class TextPanel extends PureComponent<Props, State> {
   }
 
   prepareMarkdown(content: string): string {
-    return renderMarkdown(this.interpolateAndSanitizeString(content));
+    // Sanitize is disabled here as we handle that after variable interpolation
+    return renderMarkdown(this.interpolateAndSanitizeString(content), { noSanitize: config.disableSanitizeHtml });
   }
 
   interpolateAndSanitizeString(content: string): string {

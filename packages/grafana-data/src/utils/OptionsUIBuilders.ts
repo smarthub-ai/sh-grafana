@@ -13,12 +13,10 @@ import {
   StringFieldConfigSettings,
   NumberFieldConfigSettings,
   SliderFieldConfigSettings,
-  ColorFieldConfigSettings,
   identityOverrideProcessor,
   UnitFieldConfigSettings,
   unitOverrideProcessor,
 } from '../field';
-import { FieldColor } from '../types';
 
 /**
  * Fluent API for declarative creation of field config option editors
@@ -35,7 +33,7 @@ export class FieldConfigEditorBuilder<TOptions> extends OptionsUIRegistryBuilder
       override: standardEditorsRegistry.get('number').editor as any,
       editor: standardEditorsRegistry.get('number').editor as any,
       process: numberOverrideProcessor,
-      shouldApply: config.shouldApply ? config.shouldApply : field => field.type === FieldType.number,
+      shouldApply: config.shouldApply ? config.shouldApply : (field) => field.type === FieldType.number,
       settings: config.settings || {},
     });
   }
@@ -47,7 +45,7 @@ export class FieldConfigEditorBuilder<TOptions> extends OptionsUIRegistryBuilder
       override: standardEditorsRegistry.get('slider').editor as any,
       editor: standardEditorsRegistry.get('slider').editor as any,
       process: numberOverrideProcessor,
-      shouldApply: config.shouldApply ? config.shouldApply : field => field.type === FieldType.number,
+      shouldApply: config.shouldApply ? config.shouldApply : (field) => field.type === FieldType.number,
       settings: config.settings || {},
     });
   }
@@ -59,7 +57,7 @@ export class FieldConfigEditorBuilder<TOptions> extends OptionsUIRegistryBuilder
       override: standardEditorsRegistry.get('text').editor as any,
       editor: standardEditorsRegistry.get('text').editor as any,
       process: stringOverrideProcessor,
-      shouldApply: config.shouldApply ? config.shouldApply : field => field.type === FieldType.string,
+      shouldApply: config.shouldApply ? config.shouldApply : (field) => field.type === FieldType.string,
       settings: config.settings || {},
     });
   }
@@ -104,9 +102,7 @@ export class FieldConfigEditorBuilder<TOptions> extends OptionsUIRegistryBuilder
     });
   }
 
-  addColorPicker<TSettings = any>(
-    config: FieldConfigEditorConfig<TOptions, TSettings & ColorFieldConfigSettings, FieldColor>
-  ) {
+  addColorPicker<TSettings = any>(config: FieldConfigEditorConfig<TOptions, TSettings, string>) {
     return this.addCustomEditor({
       ...config,
       id: config.path,
@@ -185,6 +181,16 @@ export class PanelOptionsEditorBuilder<TOptions> extends OptionsUIRegistryBuilde
     });
   }
 
+  addMultiSelect<TOption, TSettings extends SelectFieldConfigSettings<TOption>>(
+    config: PanelOptionsEditorConfig<TOptions, TSettings, TOption>
+  ) {
+    return this.addCustomEditor({
+      ...config,
+      id: config.path,
+      editor: standardEditorsRegistry.get('multi-select').editor as any,
+    });
+  }
+
   addRadio<TOption, TSettings extends SelectFieldConfigSettings<TOption>>(
     config: PanelOptionsEditorConfig<TOptions, TSettings, TOption>
   ) {
@@ -203,9 +209,7 @@ export class PanelOptionsEditorBuilder<TOptions> extends OptionsUIRegistryBuilde
     });
   }
 
-  addColorPicker<TSettings = any>(
-    config: PanelOptionsEditorConfig<TOptions, TSettings & ColorFieldConfigSettings, string>
-  ): this {
+  addColorPicker<TSettings = any>(config: PanelOptionsEditorConfig<TOptions, TSettings, string>): this {
     return this.addCustomEditor({
       ...config,
       id: config.path,

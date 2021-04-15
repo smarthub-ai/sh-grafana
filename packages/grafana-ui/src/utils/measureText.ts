@@ -2,17 +2,9 @@ let canvas: HTMLCanvasElement | null = null;
 const cache: Record<string, TextMetrics> = {};
 
 /**
- * @beta
+ * @internal
  */
-export function measureText(text: string, fontSize: number): TextMetrics {
-  const fontStyle = `${fontSize}px 'Roboto'`;
-  const cacheKey = text + fontStyle;
-  const fromCache = cache[cacheKey];
-
-  if (fromCache) {
-    return fromCache;
-  }
-
+export function getCanvasContext() {
   if (canvas === null) {
     canvas = document.createElement('canvas');
   }
@@ -21,6 +13,23 @@ export function measureText(text: string, fontSize: number): TextMetrics {
   if (!context) {
     throw new Error('Could not create context');
   }
+
+  return context;
+}
+
+/**
+ * @beta
+ */
+export function measureText(text: string, fontSize: number): TextMetrics {
+  const fontStyle = `${fontSize}px 'Inter'`;
+  const cacheKey = text + fontStyle;
+  const fromCache = cache[cacheKey];
+
+  if (fromCache) {
+    return fromCache;
+  }
+
+  const context = getCanvasContext();
 
   context.font = fontStyle;
   const metrics = context.measureText(text);

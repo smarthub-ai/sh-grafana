@@ -18,6 +18,7 @@
 
 .dashboard-content {
   padding: $dashboard-padding;
+  flex-basis: 100%;
   flex-grow: 1;
 }
 
@@ -73,10 +74,12 @@ div.flot-text {
   display: flex;
   flex-direction: column;
   flex: 1 1 0;
+  box-shadow: $panel-box-shadow;
 
   &--transparent {
     background-color: transparent;
     border: 1px solid transparent;
+    box-shadow: none;
   }
 
   &:hover {

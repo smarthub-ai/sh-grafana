@@ -2,11 +2,6 @@
 title = "Grafana Authentication"
 description = "Grafana OAuthentication Guide "
 keywords = ["grafana", "configuration", "documentation", "oauth"]
-type = "docs"
-[menu.docs]
-name = "GitLab"
-identifier = "grafana-oauth"
-parent = "authentication"
 weight = 100
 +++
 
@@ -108,7 +103,7 @@ oauth_auto_login = true
 
 ### Hide sign-out menu
 
-Set the option detailed below to true to hide sign-out menu link. Useful if you use an auth proxy.
+Set the option detailed below to true to hide sign-out menu link. Useful if you use an auth proxy or JWT authentication.
 
 ```bash
 [auth]

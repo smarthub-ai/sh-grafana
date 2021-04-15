@@ -1,5 +1,5 @@
 import React, { forwardRef, HTMLAttributes } from 'react';
-import { cx, css } from 'emotion';
+import { cx, css } from '@emotion/css';
 import { GrafanaTheme } from '@grafana/data';
 import { useTheme } from '../../themes';
 import { getTagColor, getTagColorsFromName } from '../../utils';
@@ -39,6 +39,8 @@ export const Tag = forwardRef<HTMLElement, Props>(({ name, onClick, className, c
     </span>
   );
 });
+
+Tag.displayName = 'Tag';
 
 const getTagStyles = (theme: GrafanaTheme, name: string, colorIndex?: number) => {
   let colors;

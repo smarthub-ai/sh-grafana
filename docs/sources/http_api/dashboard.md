@@ -2,11 +2,7 @@
 title = "Dashboard HTTP API "
 description = "Grafana Dashboard HTTP API"
 keywords = ["grafana", "http", "documentation", "api", "dashboard"]
-aliases = ["/docs/grafana/latest/http_api/dashboard/"]
-type = "docs"
-[menu.docs]
-name = "Dashboard"
-parent = "http_api"
+aliases = ["/docs/grafana/next/http_api/dashboard/"]
 +++
 
 # Dashboard API
@@ -48,6 +44,7 @@ Authorization: Bearer eyJrIjoiT0tTcG1pUlY2RnVKZTFVaDFsNFZXdE9ZWmNrMkZYbk
     "refresh": "25s"
   },
   "folderId": 0,
+  "message": "Made changes to xyz",
   "overwrite": false
 }
 ```

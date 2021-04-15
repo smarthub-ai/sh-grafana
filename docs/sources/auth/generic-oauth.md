@@ -2,11 +2,6 @@
 title = "OAuth authentication"
 description = "Grafana OAuthentication Guide "
 keywords = ["grafana", "configuration", "documentation", "oauth"]
-type = "docs"
-[menu.docs]
-name = "Generic OAuth"
-identifier = "generic_oauth"
-parent = "authentication"
 weight = 500
 +++
 
@@ -47,8 +42,8 @@ tls_client_ca =
 
 Set `api_url` to the resource that returns [OpenID UserInfo](https://connect2id.com/products/server/docs/api/userinfo) compatible information.
 
-You can also specify the SSL/TLS configuration used by the client. 
-- Set `tls_client_cert` to the path of the certificate. 
+You can also specify the SSL/TLS configuration used by the client.
+- Set `tls_client_cert` to the path of the certificate.
 - Set `tls_client_key` to the path containing the key.
 - Set `tls_client_ca` to the path containing a trusted certificate authority list.
 
@@ -75,10 +70,14 @@ See [JMESPath examples](#jmespath-examples) for more information.
 
 Customize user login using `login_attribute_path` configuration option. Order of operations is as follows:
 
-1. Grafana evaluates the `login_attribute_path` JMESPath expression against the ID token. 
+1. Grafana evaluates the `login_attribute_path` JMESPath expression against the ID token.
 1. If Grafana finds no value, then Grafana evaluates expression against the JSON data obtained from UserInfo endpoint. The UserInfo endpoint URL is specified in the `api_url` configuration option.
 
 You can customize the attribute name used to extract the ID token from the returned OAuth token with the `id_token_attribute_name` option.
+
+You can set the user's display name with JMESPath using the `name_attribute_path` configuration option. It operates the same way as the `login_attribute_path` option.
+
+> **Note:** `name_attribute_path` is available in Grafana 7.4+.
 
 ## Set up OAuth2 with Auth0
 
@@ -194,6 +193,8 @@ allowed_organizations =
 To ease configuration of a proper JMESPath expression, you can test/evaluate expressions with custom payloads at http://jmespath.org/.
 
 ### Role mapping
+
+If  the`role_attribute_path` property does not return a role, then the user is assigned the `Viewer` role by default. You can disable the role assignment by setting `role_attribute_strict = true`. It denies user access if no role or an invalid role is returned.
 
 **Basic example:**
 

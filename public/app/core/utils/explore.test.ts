@@ -2,7 +2,6 @@ import {
   buildQueryTransaction,
   clearHistory,
   DEFAULT_RANGE,
-  getFirstQueryErrorWithoutRefId,
   getRefIds,
   getValueWithRefId,
   hasNonEmptyQuery,
@@ -14,7 +13,7 @@ import {
   getTimeRangeFromUrl,
 } from './explore';
 import store from 'app/core/store';
-import { DataQueryError, dateTime, ExploreUrlState, LogsSortOrder } from '@grafana/data';
+import { dateTime, ExploreUrlState, LogsSortOrder } from '@grafana/data';
 import { RefreshPicker } from '@grafana/ui';
 import { serializeStateToUrlParam } from '@grafana/data/src/utils/url';
 
@@ -36,8 +35,7 @@ describe('state functions', () => {
     });
 
     it('returns a valid Explore state from URL parameter', () => {
-      const paramValue =
-        '%7B"datasource":"Local","queries":%5B%7B"expr":"metric"%7D%5D,"range":%7B"from":"now-1h","to":"now"%7D%7D';
+      const paramValue = '{"datasource":"Local","queries":[{"expr":"metric"}],"range":{"from":"now-1h","to":"now"}}';
       expect(parseUrlState(paramValue)).toMatchObject({
         datasource: 'Local',
         queries: [{ expr: 'metric' }],
@@ -49,9 +47,7 @@ describe('state functions', () => {
     });
 
     it('returns a valid Explore state from a compact URL parameter', () => {
-      // ["now-1h","now","Local",{"expr":"metric"},{"ui":[true,true,true,"none"]}]
-      const paramValue =
-        '%5B"now-1h","now","Local",%7B"expr":"metric"%7D,%7B%22ui%22:%5Btrue,true,true,%22none%22%5D%7D%5D';
+      const paramValue = '["now-1h","now","Local",{"expr":"metric"},{"ui":[true,true,true,"none"]}]';
       expect(parseUrlState(paramValue)).toMatchObject({
         datasource: 'Local',
         queries: [{ expr: 'metric' }],
@@ -62,10 +58,23 @@ describe('state functions', () => {
       });
     });
 
-    it('should return queries if queryType is present in the url', () => {
-      // ["now-1h","now","x-ray-datasource",{"queryType":"getTraceSummaries"},{"ui":[true,true,true,"none"]}]
+    it('should not return a query for mode in the url', () => {
+      // Previous versions of Grafana included "Explore mode" in the URL; this should not be treated as a query.
       const paramValue =
-        '%5B"now-1h","now","x-ray-datasource",%7B"queryType":"getTraceSummaries"%7D,%7B%22ui%22:%5Btrue,true,true,%22none%22%5D%7D%5D';
+        '["now-1h","now","x-ray-datasource",{"queryType":"getTraceSummaries"},{"mode":"Metrics"},{"ui":[true,true,true,"none"]}]';
+      expect(parseUrlState(paramValue)).toMatchObject({
+        datasource: 'x-ray-datasource',
+        queries: [{ queryType: 'getTraceSummaries' }],
+        range: {
+          from: 'now-1h',
+          to: 'now',
+        },
+      });
+    });
+
+    it('should return queries if queryType is present in the url', () => {
+      const paramValue =
+        '["now-1h","now","x-ray-datasource",{"queryType":"getTraceSummaries"},{"ui":[true,true,true,"none"]}]';
       expect(parseUrlState(paramValue)).toMatchObject({
         datasource: 'x-ray-datasource',
         queries: [{ queryType: 'getTraceSummaries' }],
@@ -194,7 +203,7 @@ describe('getExploreUrl', () => {
   } as unknown) as GetExploreUrlArguments;
 
   it('should omit legendFormat in explore url', () => {
-    expect(getExploreUrl(args).then(data => expect(data).not.toMatch(/legendFormat1/g)));
+    expect(getExploreUrl(args).then((data) => expect(data).not.toMatch(/legendFormat1/g)));
   });
 });
 
@@ -290,12 +299,8 @@ describe('getTimeRangeFromUrl', () => {
 
   it('should parse epoch strings', () => {
     const range = {
-      from: dateTime('2020-10-22T10:00:00Z')
-        .valueOf()
-        .toString(),
-      to: dateTime('2020-10-22T11:00:00Z')
-        .valueOf()
-        .toString(),
+      from: dateTime('2020-10-22T10:00:00Z').valueOf().toString(),
+      to: dateTime('2020-10-22T11:00:00Z').valueOf().toString(),
     };
     const result = getTimeRangeFromUrl(range, 'browser');
     expect(result.from.valueOf()).toEqual(dateTime('2020-10-22T10:00:00Z').valueOf());
@@ -314,40 +319,6 @@ describe('getTimeRangeFromUrl', () => {
     expect(result.to.valueOf()).toEqual(dateTime('2020-10-22T11:00:00Z').valueOf());
     expect(result.raw.from.valueOf()).toEqual(dateTime('2020-10-22T10:00:00Z').valueOf());
     expect(result.raw.to.valueOf()).toEqual(dateTime('2020-10-22T11:00:00Z').valueOf());
-  });
-});
-
-describe('getFirstQueryErrorWithoutRefId', () => {
-  describe('when called with a null value', () => {
-    it('then it should return undefined', () => {
-      const errors: DataQueryError[] | undefined = undefined;
-      const result = getFirstQueryErrorWithoutRefId(errors);
-
-      expect(result).toBeUndefined();
-    });
-  });
-
-  describe('when called with an array with only refIds', () => {
-    it('then it should return undefined', () => {
-      const errors: DataQueryError[] = [{ refId: 'A' }, { refId: 'B' }];
-      const result = getFirstQueryErrorWithoutRefId(errors);
-
-      expect(result).toBeUndefined();
-    });
-  });
-
-  describe('when called with an array with and without refIds', () => {
-    it('then it should return undefined', () => {
-      const errors: DataQueryError[] = [
-        { refId: 'A' },
-        { message: 'A message' },
-        { refId: 'B' },
-        { message: 'B message' },
-      ];
-      const result = getFirstQueryErrorWithoutRefId(errors);
-
-      expect(result).toBe(errors[1]);
-    });
   });
 });
 

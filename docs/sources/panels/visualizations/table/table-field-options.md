@@ -1,7 +1,6 @@
 +++
 title = "Table field options"
 keywords = ["grafana", "table options", "documentation", "format tables"]
-type = "docs"
 weight = 500
 +++
 
@@ -12,6 +11,7 @@ This section explains all available table field options. They are listed in the 
 Most field options will not affect the visualization until you click outside of the field option box you are editing or press Enter.
 
 For more information about applying these options, refer to:
+
 - [Configure all fields]({{< relref "../../field-options/configure-all-fields.md" >}})
 - [Configure specific fields]({{< relref "../../field-options/configure-specific-fields.md" >}})
 
@@ -42,9 +42,9 @@ If thresholds are set, then the field text is displayed in the appropriate thres
 
 {{< docs-imagebox img="/img/docs/tables/color-text.png" max-width="500px" caption="Color text" class="docs-image--no-shadow" >}}
 
-### Color background
+### Color background (gradient or solid)
 
-If thresholds are set, then the field background is displayed in the appropriate threshold color.
+If thresholds are set, then the field background is displayed in the appropriate threshold color. 
 
 {{< docs-imagebox img="/img/docs/tables/color-background.png" max-width="500px" caption="Color background" class="docs-image--no-shadow" >}}
 
@@ -77,5 +77,5 @@ If you have a field value that is an image URL or a base64 encoded image you can
 ## Column filter
 
 > **Note:** This feature is available in Grafana 7.2+.
-> 
+>
 Turn this on to enable table field filters. For more information, refer to [Filter table columns]({{< relref "filter-table-columns.md" >}}).

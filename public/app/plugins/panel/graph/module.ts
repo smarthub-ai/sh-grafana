@@ -6,27 +6,28 @@ import './time_regions_form';
 import template from './template';
 import _ from 'lodash';
 
-import { MetricsPanelCtrl } from 'app/plugins/sdk';
 import { DataProcessor } from './data_processor';
 import { axesEditorComponent } from './axes_editor';
 import config from 'app/core/config';
 import TimeSeries from 'app/core/time_series2';
-import { getProcessedDataFrames } from 'app/features/dashboard/state/runRequest';
-import { PanelEvents, PanelPlugin, DataFrame, FieldConfigProperty, getColorForTheme } from '@grafana/data';
+import { getProcessedDataFrames } from 'app/features/query/state/runRequest';
+import { DataFrame, FieldConfigProperty, getColorForTheme, PanelEvents, PanelPlugin } from '@grafana/data';
 
 import { GraphContextMenuCtrl } from './GraphContextMenuCtrl';
 import { graphPanelMigrationHandler } from './GraphMigrations';
-import { DataWarning, GraphPanelOptions, GraphFieldConfig } from './types';
+import { DataWarning, GraphFieldConfig, GraphPanelOptions } from './types';
 
 import { auto } from 'angular';
 import { AnnotationsSrv } from 'app/features/annotations/all';
-import { CoreEvents } from 'app/types';
 import { getLocationSrv } from '@grafana/runtime';
 import { getDataTimeRange } from './utils';
 import { changePanelPlugin } from 'app/features/dashboard/state/actions';
 import { dispatch } from 'app/store/store';
 import { ThresholdMapper } from 'app/features/alerting/state/ThresholdMapper';
 import { getAnnotationsFromData } from 'app/features/annotations/standardAnnotationSupport';
+import { appEvents } from '../../../core/core';
+import { ZoomOutEvent } from '../../../types/events';
+import { MetricsPanelCtrl } from 'app/features/panel/metrics_panel_ctrl';
 
 export class GraphCtrl extends MetricsPanelCtrl {
   static template = template;
@@ -156,6 +157,7 @@ export class GraphCtrl extends MetricsPanelCtrl {
     this.useDataFrames = true;
     this.processor = new DataProcessor(this.panel);
     this.contextMenuCtrl = new GraphContextMenuCtrl($scope);
+    this.annotationsPromise = Promise.resolve({ annotations: [] });
 
     this.events.on(PanelEvents.render, this.onRender.bind(this));
     this.events.on(PanelEvents.dataFramesReceived, this.onDataFramesReceived.bind(this));
@@ -163,7 +165,11 @@ export class GraphCtrl extends MetricsPanelCtrl {
     this.events.on(PanelEvents.editModeInitialized, this.onInitEditMode.bind(this));
     this.events.on(PanelEvents.initPanelActions, this.onInitPanelActions.bind(this));
 
-    this.annotationsPromise = Promise.resolve({ annotations: [] });
+    // set axes format from field config
+    const fieldConfigUnit = this.panel.fieldConfig.defaults.unit;
+    if (fieldConfigUnit) {
+      this.panel.yaxes[0].format = fieldConfigUnit;
+    }
   }
 
   onInitEditMode() {
@@ -200,7 +206,7 @@ export class GraphCtrl extends MetricsPanelCtrl {
   }
 
   zoomOut(evt: any) {
-    this.publishAppEvent(CoreEvents.zoomOut, 2);
+    appEvents.publish(new ZoomOutEvent(2));
   }
 
   onDataSnapshotLoad(snapshotData: any) {
@@ -381,17 +387,21 @@ export class GraphCtrl extends MetricsPanelCtrl {
   getTimeZone = () => this.dashboard.getTimezone();
 
   getDataFrameByRefId = (refId: string) => {
-    return this.dataList.filter(dataFrame => dataFrame.refId === refId)[0];
+    return this.dataList.filter((dataFrame) => dataFrame.refId === refId)[0];
   };
 }
 
 // Use new react style configuration
 export const plugin = new PanelPlugin<GraphPanelOptions, GraphFieldConfig>(null)
   .useFieldConfig({
-    standardOptions: [
-      FieldConfigProperty.DisplayName,
-      FieldConfigProperty.Unit,
-      FieldConfigProperty.Links, // previously saved as dataLinks on options
+    disableStandardOptions: [
+      FieldConfigProperty.NoValue,
+      FieldConfigProperty.Thresholds,
+      FieldConfigProperty.Max,
+      FieldConfigProperty.Min,
+      FieldConfigProperty.Decimals,
+      FieldConfigProperty.Color,
+      FieldConfigProperty.Mappings,
     ],
   })
   .setMigrationHandler(graphPanelMigrationHandler);

@@ -2,11 +2,7 @@
 title = "Team sync"
 description = "Grafana Team Sync"
 keywords = ["grafana", "auth", "documentation"]
-aliases = ["/docs/grafana/latest/auth/saml/"]
-type = "docs"
-[menu.docs]
-name = "Team sync"
-parent = "enterprise"
+aliases = ["/docs/grafana/next/auth/saml/"]
 weight = 600
 +++
 

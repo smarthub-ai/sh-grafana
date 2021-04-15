@@ -1,6 +1,6 @@
 import React, { FC, useCallback, useMemo, useState } from 'react';
 import { FixedSizeList as List } from 'react-window';
-import { css } from 'emotion';
+import { css } from '@emotion/css';
 import { GrafanaTheme, SelectableValue } from '@grafana/data';
 
 import { stylesFactory, useTheme } from '../../themes';
@@ -19,7 +19,7 @@ export const FilterList: FC<Props> = ({ options, values, onChange }) => {
   const theme = useTheme();
   const styles = getStyles(theme);
   const [searchFilter, setSearchFilter] = useState('');
-  const items = useMemo(() => options.filter(option => option.label?.indexOf(searchFilter) !== -1), [
+  const items = useMemo(() => options.filter((option) => option.label?.indexOf(searchFilter) !== -1), [
     options,
     searchFilter,
   ]);
@@ -37,7 +37,7 @@ export const FilterList: FC<Props> = ({ options, values, onChange }) => {
     (option: SelectableValue) => (event: React.FormEvent<HTMLInputElement>) => {
       const newValues = event.currentTarget.checked
         ? values.concat(option)
-        : values.filter(c => c.value !== option.value);
+        : values.filter((c) => c.value !== option.value);
 
       onChange(newValues);
     },
@@ -64,7 +64,7 @@ export const FilterList: FC<Props> = ({ options, values, onChange }) => {
           {({ index, style }) => {
             const option = items[index];
             const { value, label } = option;
-            const isChecked = values.find(s => s.value === value) !== undefined;
+            const isChecked = values.find((s) => s.value === value) !== undefined;
 
             return (
               <div className={styles.filterListRow} style={style} title={label}>
@@ -89,8 +89,9 @@ const getStyles = stylesFactory((theme: GrafanaTheme) => ({
     overflow: hidden;
     text-overflow: ellipsis;
     padding: ${theme.spacing.xs};
+
     :hover {
-      background-color: ${theme.colors.bg3};
+      background-color: ${theme.v2.palette.action.hover};
     }
   `,
   filterListInput: css`

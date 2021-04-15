@@ -26,6 +26,7 @@ type SocialGenericOAuth struct {
 	loginAttributePath   string
 	nameAttributePath    string
 	roleAttributePath    string
+	roleAttributeStrict  bool
 	idTokenAttributeName string
 	teamIds              []int
 }
@@ -166,6 +167,10 @@ func (s *SocialGenericOAuth) UserInfo(client *http.Client, token *oauth2.Token) 
 		userInfo.Login = userInfo.Email
 	}
 
+	if s.roleAttributeStrict && !models.RoleType(userInfo.Role).IsValid() {
+		return nil, errors.New("invalid role")
+	}
+
 	if !s.IsTeamMember(client) {
 		return nil, errors.New("user not a member of one of the required teams")
 	}
@@ -229,7 +234,11 @@ func (s *SocialGenericOAuth) extractFromToken(token *oauth2.Token) *UserInfoJson
 			s.log.Error("Error creating zlib reader", "error", err)
 			return nil
 		}
-		defer fr.Close()
+		defer func() {
+			if err := fr.Close(); err != nil {
+				s.log.Warn("Failed closing zlib reader", "error", err)
+			}
+		}()
 		rawJSON, err = ioutil.ReadAll(fr)
 		if err != nil {
 			s.log.Error("Error decompressing payload", "error", err)
@@ -251,7 +260,7 @@ func (s *SocialGenericOAuth) extractFromToken(token *oauth2.Token) *UserInfoJson
 
 func (s *SocialGenericOAuth) extractFromAPI(client *http.Client) *UserInfoJson {
 	s.log.Debug("Getting user info from API")
-	rawUserInfoResponse, err := HttpGet(client, s.apiUrl)
+	rawUserInfoResponse, err := s.httpGet(client, s.apiUrl)
 	if err != nil {
 		s.log.Debug("Error getting user info from API", "url", s.apiUrl, "error", err)
 		return nil
@@ -347,7 +356,7 @@ func (s *SocialGenericOAuth) FetchPrivateEmail(client *http.Client) (string, err
 		IsConfirmed bool   `json:"is_confirmed"`
 	}
 
-	response, err := HttpGet(client, fmt.Sprintf(s.apiUrl+"/emails"))
+	response, err := s.httpGet(client, fmt.Sprintf(s.apiUrl+"/emails"))
 	if err != nil {
 		s.log.Error("Error getting email address", "url", s.apiUrl+"/emails", "error", err)
 		return "", errutil.Wrap("Error getting email address", err)
@@ -390,7 +399,7 @@ func (s *SocialGenericOAuth) FetchTeamMemberships(client *http.Client) ([]int, b
 		Id int `json:"id"`
 	}
 
-	response, err := HttpGet(client, fmt.Sprintf(s.apiUrl+"/teams"))
+	response, err := s.httpGet(client, fmt.Sprintf(s.apiUrl+"/teams"))
 	if err != nil {
 		s.log.Error("Error getting team memberships", "url", s.apiUrl+"/teams", "error", err)
 		return nil, false
@@ -419,7 +428,7 @@ func (s *SocialGenericOAuth) FetchOrganizations(client *http.Client) ([]string, 
 		Login string `json:"login"`
 	}
 
-	response, err := HttpGet(client, fmt.Sprintf(s.apiUrl+"/orgs"))
+	response, err := s.httpGet(client, fmt.Sprintf(s.apiUrl+"/orgs"))
 	if err != nil {
 		s.log.Error("Error getting organizations", "url", s.apiUrl+"/orgs", "error", err)
 		return nil, false

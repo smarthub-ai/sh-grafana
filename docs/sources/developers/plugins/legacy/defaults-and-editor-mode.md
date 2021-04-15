@@ -1,7 +1,6 @@
 +++
 title = "Legacy defaults and editor mode"
-type = "docs"
-aliases = ["/docs/grafana/latest/plugins/developing/defaults-and-editor-mode/"]
+aliases = ["/docs/grafana/next/plugins/developing/defaults-and-editor-mode/"]
 +++
 
 # Legacy defaults and editor mode

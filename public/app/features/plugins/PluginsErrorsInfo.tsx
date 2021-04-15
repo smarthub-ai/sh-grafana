@@ -1,15 +1,14 @@
 import React from 'react';
 import { selectors } from '@grafana/e2e-selectors';
-import { HorizontalGroup, InfoBox, List, useTheme } from '@grafana/ui';
-import { mapPluginErrorCodeToSignatureStatus, PluginSignatureBadge } from './PluginSignatureBadge';
+import { HorizontalGroup, InfoBox, List, PluginSignatureBadge, useTheme } from '@grafana/ui';
 import { StoreState } from '../../types';
 import { getAllPluginsErrors } from './state/selectors';
 import { loadPlugins, loadPluginsErrors } from './state/actions';
 import useAsync from 'react-use/lib/useAsync';
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux';
 import { hot } from 'react-hot-loader';
-import { PluginError } from '@grafana/data';
-import { css } from 'emotion';
+import { PluginError, PluginErrorCode, PluginSignatureStatus } from '@grafana/data';
+import { css } from '@emotion/css';
 
 interface ConnectedProps {
   errors: PluginError[];
@@ -44,12 +43,16 @@ export const PluginsErrorsInfoUnconnected: React.FC<PluginsErrorsInfoProps> = ({
       aria-label={selectors.pages.PluginsList.signatureErrorNotice}
       severity="warning"
       urlTitle="Read more about plugin signing"
-      url="https://grafana.com/docs/grafana/latest/plugins/plugin-signature-verification/"
+      url="https://grafana.com/docs/grafana/latest/plugins/plugin-signatures/"
     >
       <div>
         <p>
           We have encountered{' '}
-          <a href="https://grafana.com/docs/grafana/latest/developers/plugins/backend/" target="_blank">
+          <a
+            href="https://grafana.com/docs/grafana/latest/developers/plugins/backend/"
+            target="_blank"
+            rel="noreferrer"
+          >
             data source backend plugins
           </a>{' '}
           that are unsigned. Grafana Labs cannot guarantee the integrity of unsigned plugins and recommends using signed
@@ -61,7 +64,7 @@ export const PluginsErrorsInfoUnconnected: React.FC<PluginsErrorsInfoProps> = ({
           className={css`
             list-style-type: circle;
           `}
-          renderItem={e => (
+          renderItem={(e) => (
             <div
               className={css`
                 margin-top: ${theme.spacing.sm};
@@ -98,3 +101,16 @@ const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
 export const PluginsErrorsInfo = hot(module)(
   connect(mapStateToProps, mapDispatchToProps)(PluginsErrorsInfoUnconnected)
 );
+
+function mapPluginErrorCodeToSignatureStatus(code: PluginErrorCode) {
+  switch (code) {
+    case PluginErrorCode.invalidSignature:
+      return PluginSignatureStatus.invalid;
+    case PluginErrorCode.missingSignature:
+      return PluginSignatureStatus.missing;
+    case PluginErrorCode.modifiedSignature:
+      return PluginSignatureStatus.modified;
+    default:
+      return PluginSignatureStatus.missing;
+  }
+}
