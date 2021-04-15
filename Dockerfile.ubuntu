@@ -5,7 +5,9 @@ WORKDIR /usr/src/app/
 COPY package.json yarn.lock ./
 COPY packages packages
 
-RUN yarn install --pure-lockfile
+RUN apt update && \
+    apt install -y git && \
+    yarn install --pure-lockfile
 
 COPY tsconfig.json .eslintrc .editorconfig .browserslistrc .prettierrc.js ./
 COPY public public
