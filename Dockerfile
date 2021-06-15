@@ -5,6 +5,7 @@ WORKDIR /usr/src/app/
 COPY package.json yarn.lock ./
 COPY packages packages
 
+RUN apk add --no-cache git
 RUN yarn install --pure-lockfile --no-progress
 
 COPY tsconfig.json .eslintrc .editorconfig .browserslistrc .prettierrc.js ./
@@ -18,7 +19,7 @@ RUN yarn build
 
 FROM golang:1.16.1-alpine3.13 as go-builder
 
-RUN apk add --no-cache gcc g++
+RUN apk add --no-cache gcc g++ git
 
 WORKDIR $GOPATH/src/github.com/grafana/grafana
 
