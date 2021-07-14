@@ -9,11 +9,10 @@ export interface BrandComponentProps {
 }
 
 const LoginLogo: FC<BrandComponentProps> = ({ className }) => {
-  return <img className={className} src="public/img/grafana_icon.svg" alt="Grafana" />;
+  return <img className={className} src="public/img/smarthub_icon.png" alt="SmartHub.ai" />;
 };
 
 const LoginBackground: FC<BrandComponentProps> = ({ className, children }) => {
-  const theme = useTheme2();
 
   const background = css`
     &:before {
@@ -23,7 +22,7 @@ const LoginBackground: FC<BrandComponentProps> = ({ className, children }) => {
       right: 0;
       bottom: 0;
       top: 0;
-      background: url(public/img/g8_login_${theme.isDark ? 'dark' : 'light'}.svg);
+      background: url(public/img/smarthub_bg.svg);
       background-size: cover;
       opacity: 0;
       transition: opacity 3s ease-in-out;
@@ -34,7 +33,7 @@ const LoginBackground: FC<BrandComponentProps> = ({ className, children }) => {
 };
 
 const MenuLogo: FC<BrandComponentProps> = ({ className }) => {
-  return <img className={className} src="public/img/grafana_icon.svg" alt="Grafana" />;
+  return <img className={className} src="public/img/smarthub_icon.png" alt="SmartHub.ai" />;
 };
 
 const LoginBoxBackground = () => {
@@ -50,8 +49,8 @@ export class Branding {
   static LoginBackground = LoginBackground;
   static MenuLogo = MenuLogo;
   static LoginBoxBackground = LoginBoxBackground;
-  static AppTitle = 'Grafana';
-  static LoginTitle = 'Welcome to Grafana';
+  static AppTitle = 'SmartHub.ai';
+  static LoginTitle = 'Welcome to SmartHub.ai';
   static GetLoginSubTitle = (): null | string => {
     return null;
   };
