@@ -5,16 +5,12 @@ import { cloneDeep } from 'lodash';
 import { GrafanaTheme2, NavModelItem, NavSection } from '@grafana/data';
 import { Icon, IconName, useTheme2 } from '@grafana/ui';
 import { locationService } from '@grafana/runtime';
-import { Branding } from 'app/core/components/Branding/Branding';
 import config from 'app/core/config';
 import { KioskMode } from 'app/types';
 import { enrichConfigItems, getActiveItem, isMatchOrChildMatch, isSearchActive, SEARCH_ITEM_ID } from './utils';
-import { OrgSwitcher } from '../OrgSwitcher';
 import NavBarItem from './NavBarItem';
 import { NavBarSection } from './NavBarSection';
 import { NavBarMenu } from './NavBarMenu';
-
-const homeUrl = config.appSubUrl || '/';
 
 const onOpenSearch = () => {
   locationService.partial({ search: 'open' });
@@ -36,13 +32,15 @@ export const NavBar: FC = React.memo(() => {
   const toggleSwitcherModal = () => {
     setShowSwitcherModal(!showSwitcherModal);
   };
+  const unwantedMenuItems: any = { explore: true, alerting: true };
   const navTree: NavModelItem[] = cloneDeep(config.bootData.navTree);
-  const topItems = navTree.filter((item) => item.section === NavSection.Core);
+  const topItems = navTree.filter((item) => item.section === NavSection.Core && !Boolean(unwantedMenuItems[item.id]));
   const bottomItems = enrichConfigItems(
     navTree.filter((item) => item.section === NavSection.Config),
     location,
     toggleSwitcherModal
   );
+
   const activeItem = isSearchActive(location) ? searchItem : getActiveItem(navTree, location.pathname);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -58,9 +56,6 @@ export const NavBar: FC = React.memo(() => {
       </div>
 
       <NavBarSection>
-        <NavBarItem url={homeUrl} label="Home" className={styles.grafanaLogo} showMenu={false}>
-          <Branding.MenuLogo />
-        </NavBarItem>
         <NavBarItem
           className={styles.search}
           isActive={activeItem === searchItem}
@@ -89,30 +84,10 @@ export const NavBar: FC = React.memo(() => {
 
       <div className={styles.spacer} />
 
-      <NavBarSection>
-        {bottomItems.map((link, index) => (
-          <NavBarItem
-            key={`${link.id}-${index}`}
-            isActive={isMatchOrChildMatch(link, activeItem)}
-            label={link.text}
-            menuItems={link.children}
-            menuSubTitle={link.subTitle}
-            onClick={link.onClick}
-            reverseMenuDirection
-            target={link.target}
-            url={link.url}
-          >
-            {link.icon && <Icon name={link.icon as IconName} size="xl" />}
-            {link.img && <img src={link.img} alt={`${link.text} logo`} />}
-          </NavBarItem>
-        ))}
-      </NavBarSection>
-
-      {showSwitcherModal && <OrgSwitcher onDismiss={toggleSwitcherModal} />}
       {mobileMenuOpen && (
         <NavBarMenu
           activeItem={activeItem}
-          navItems={[searchItem, ...topItems, ...bottomItems]}
+          navItems={[searchItem, ...topItems]}
           onClose={() => setMobileMenuOpen(false)}
         />
       )}
@@ -138,7 +113,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     z-index: ${theme.zIndex.sidemenu};
 
     ${theme.breakpoints.up('md')} {
-      background: ${theme.colors.background.primary};
+      background: rgb(250, 250, 250);
       border-right: 1px solid ${theme.components.panel.borderColor};
       padding: 0 0 ${theme.spacing(1)} 0;
       position: relative;
