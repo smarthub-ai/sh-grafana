@@ -60,7 +60,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/hashicorp/go-hclog v0.16.1
 	github.com/hashicorp/go-plugin v1.4.3
-	github.com/hashicorp/go-version v1.3.0
+	github.com/hashicorp/go-version v1.5.0
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
 	github.com/influxdata/influxdb-client-go/v2 v2.3.1-0.20210518120617-5d1fff431040
 	github.com/influxdata/line-protocol v0.0.0-20210311194329-9aa0e372d097
@@ -197,7 +197,7 @@ require (
 	github.com/hashicorp/go-msgpack v0.5.5 // indirect
 	github.com/hashicorp/go-multierror v1.1.0 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
-	github.com/hashicorp/golang-lru v0.5.4 // indirect
+	github.com/hashicorp/golang-lru v0.5.4
 	github.com/hashicorp/memberlist v0.2.4 // indirect
 	github.com/hashicorp/yamux v0.0.0-20210826001029-26ff87cf9493 // indirect
 	github.com/igm/sockjs-go/v3 v3.0.1 // indirect
