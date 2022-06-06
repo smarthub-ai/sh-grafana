@@ -18,7 +18,7 @@ import NavBarItem from './NavBarItem';
 import { NavBarItemWithoutMenu } from './NavBarItemWithoutMenu';
 import { NavBarMenu } from './NavBarMenu';
 import { NavBarSection } from './NavBarSection';
-import { enrichConfigItems, getActiveItem, isMatchOrChildMatch, isSearchActive, SEARCH_ITEM_ID } from './utils';
+import { getActiveItem, isMatchOrChildMatch, isSearchActive, SEARCH_ITEM_ID } from './utils';
 
 const homeUrl = config.appSubUrl || '/';
 
@@ -53,12 +53,15 @@ export const NavBarUnconnected = React.memo(({ navBarTree }: Props) => {
     setShowSwitcherModal(!showSwitcherModal);
   };
   const navTree = cloneDeep(navBarTree);
-  const topItems = navTree.filter((item) => item.section === NavSection.Core);
-  const bottomItems = enrichConfigItems(
-    navTree.filter((item) => item.section === NavSection.Config),
-    location,
-    toggleSwitcherModal
-  );
+  const avoidMenuItems = { explore: 1, alerting: 1 };
+  const topItems = navTree.filter((item) => {
+    return item.section === NavSection.Core && !avoidMenuItems[item.id];
+  });
+  // const bottomItems = enrichConfigItems(
+  //   navTree.filter((item) => item.section === NavSection.Config),
+  //   location,
+  //   toggleSwitcherModal
+  // );
   const activeItem = isSearchActive(location) ? searchItem : getActiveItem(navTree, location.pathname);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -97,7 +100,7 @@ export const NavBarUnconnected = React.memo(({ navBarTree }: Props) => {
 
       <div className={styles.spacer} />
 
-      <NavBarSection>
+      {/* <NavBarSection>
         {bottomItems.map((link, index) => (
           <NavBarItem
             key={`${link.id}-${index}`}
@@ -109,7 +112,7 @@ export const NavBarUnconnected = React.memo(({ navBarTree }: Props) => {
             {link.img && <img src={link.img} alt={`${link.text} logo`} />}
           </NavBarItem>
         ))}
-      </NavBarSection>
+      </NavBarSection> */}
 
       {showSwitcherModal && <OrgSwitcher onDismiss={toggleSwitcherModal} />}
       {mobileMenuOpen && (
