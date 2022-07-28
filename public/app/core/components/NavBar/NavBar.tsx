@@ -53,7 +53,8 @@ export const NavBarUnconnected = React.memo(({ navBarTree }: Props) => {
     setShowSwitcherModal(!showSwitcherModal);
   };
   const navTree = cloneDeep(navBarTree);
-  const topItems = navTree.filter((item) => item.section === NavSection.Core);
+  const unwantedOptions: any = { explore: true, alerting: true };
+  const topItems = navTree.filter((item) => item.section === NavSection.Core && !unwantedOptions[item.id || '']);
   const bottomItems = enrichConfigItems(
     navTree.filter((item) => item.section === NavSection.Config),
     location,
@@ -96,20 +97,6 @@ export const NavBarUnconnected = React.memo(({ navBarTree }: Props) => {
       </NavBarSection>
 
       <div className={styles.spacer} />
-
-      <NavBarSection>
-        {bottomItems.map((link, index) => (
-          <NavBarItem
-            key={`${link.id}-${index}`}
-            isActive={isMatchOrChildMatch(link, activeItem)}
-            reverseMenuDirection
-            link={link}
-          >
-            {link.icon && <Icon name={link.icon as IconName} size="xl" />}
-            {link.img && <img src={link.img} alt={`${link.text} logo`} />}
-          </NavBarItem>
-        ))}
-      </NavBarSection>
 
       {showSwitcherModal && <OrgSwitcher onDismiss={toggleSwitcherModal} />}
       {mobileMenuOpen && (
