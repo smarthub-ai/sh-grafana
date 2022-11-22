@@ -19,7 +19,6 @@ import { NavBarMenuPortalContainer } from './NavBarMenuPortalContainer';
 import { NavBarToggle } from './NavBarToggle';
 import { NavBarContext } from './context';
 import {
-  enrichConfigItems,
   enrichWithInteractionTracking,
   getActiveItem,
   isMatchOrChildMatch,
@@ -62,17 +61,27 @@ export const NavBar = React.memo(() => {
   );
 
   const navTree = cloneDeep(navBarTree);
+  // const avoidMenuItems: { [key: string]: boolean } = { explore: true, alerting: true, profile: true, help: true };
+  enum AvoidMenuItems {
+    Explore = 'explore',
+    Alerting = 'alerting',
+    Profile = 'profile',
+    Help = 'help',
+  }
 
   const coreItems = navTree
-    .filter((item) => item.section === NavSection.Core)
+    .filter(
+      (item) =>
+        (item.section === NavSection.Core || item.section === NavSection.Config) &&
+        item.id !== AvoidMenuItems.Explore &&
+        item.id !== AvoidMenuItems.Alerting &&
+        item.id !== AvoidMenuItems.Profile &&
+        item.id !== AvoidMenuItems.Help
+    )
     .map((item) => enrichWithInteractionTracking(item, menuOpen));
   const pluginItems = navTree
     .filter((item) => item.section === NavSection.Plugin)
     .map((item) => enrichWithInteractionTracking(item, menuOpen));
-  const configItems = enrichConfigItems(
-    navTree.filter((item) => item.section === NavSection.Config),
-    location
-  ).map((item) => enrichWithInteractionTracking(item, menuOpen));
 
   const activeItem = isSearchActive(location) ? searchItem : getActiveItem(navTree, location.pathname);
 
@@ -135,16 +144,6 @@ export const NavBar = React.memo(() => {
                       link={link}
                     />
                   ))}
-
-                {configItems.map((link, index) => (
-                  <NavBarItem
-                    key={`${link.id}-${index}`}
-                    isActive={isMatchOrChildMatch(link, activeItem)}
-                    reverseMenuDirection
-                    link={link}
-                    className={cx({ [styles.verticalSpacer]: index === 0 })}
-                  />
-                ))}
               </ul>
             </CustomScrollbar>
           </FocusScope>
@@ -156,7 +155,7 @@ export const NavBar = React.memo(() => {
             activeItem={activeItem}
             isOpen={menuOpen}
             setMenuAnimationInProgress={setMenuAnimationInProgress}
-            navItems={[homeItem, searchItem, ...coreItems, ...pluginItems, ...configItems]}
+            navItems={[homeItem, searchItem, ...coreItems, ...pluginItems]}
             onClose={() => setMenuOpen(false)}
           />
         </div>
