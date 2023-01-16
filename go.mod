@@ -103,7 +103,6 @@ require (
 	github.com/xorcare/pointer v1.1.0
 	github.com/yalue/merged_fs v1.2.2
 	github.com/yudai/gojsondiff v1.0.0
-	go.opentelemetry.io/collector v0.31.0
 	go.opentelemetry.io/collector/model v0.31.0
 	go.opentelemetry.io/otel v1.11.2
 	go.opentelemetry.io/otel/exporters/jaeger v1.0.0
@@ -158,7 +157,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/emicklei/proto v1.10.0 // indirect
-	github.com/felixge/httpsnoop v1.0.2 // indirect
+	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/go-kit/log v0.2.1
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/go-openapi/analysis v0.21.4 // indirect
@@ -274,7 +273,7 @@ require (
 
 require (
 	github.com/dave/dst v0.27.2
-	github.com/parca-dev/parca v0.12.1
+	github.com/parca-dev/parca v0.15.0
 	k8s.io/apimachinery v0.25.3
 )
 
