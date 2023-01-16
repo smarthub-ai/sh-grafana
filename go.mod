@@ -252,7 +252,7 @@ require (
 	github.com/blugelabs/bluge_segment_api v0.2.0
 	github.com/bufbuild/connect-go v1.4.1
 	github.com/dlmiddlecote/sqlstats v1.0.2
-	github.com/drone/drone-cli v1.6.1
+	github.com/drone/drone-cli v1.6.2
 	github.com/getkin/kin-openapi v0.103.0
 	github.com/golang-migrate/migrate/v4 v4.7.0
 	github.com/google/go-github/v45 v45.2.0
@@ -274,7 +274,7 @@ require (
 
 require (
 	github.com/dave/dst v0.27.2
-	github.com/parca-dev/parca v0.12.1
+	github.com/parca-dev/parca v0.15.0
 	k8s.io/apimachinery v0.25.3
 )
 
