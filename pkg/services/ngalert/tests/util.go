@@ -18,6 +18,7 @@ import (
 	"github.com/grafana/grafana/pkg/infra/db"
 	"github.com/grafana/grafana/pkg/infra/log"
 	"github.com/grafana/grafana/pkg/infra/tracing"
+	"github.com/grafana/grafana/pkg/plugins"
 	"github.com/grafana/grafana/pkg/services/accesscontrol"
 	acmock "github.com/grafana/grafana/pkg/services/accesscontrol/mock"
 	"github.com/grafana/grafana/pkg/services/annotations/annotationstest"
@@ -33,6 +34,7 @@ import (
 	"github.com/grafana/grafana/pkg/services/ngalert/models"
 	"github.com/grafana/grafana/pkg/services/ngalert/store"
 	"github.com/grafana/grafana/pkg/services/org"
+	"github.com/grafana/grafana/pkg/services/quota/quotatest"
 	"github.com/grafana/grafana/pkg/services/secrets/database"
 	secretsManager "github.com/grafana/grafana/pkg/services/secrets/manager"
 	"github.com/grafana/grafana/pkg/services/tag/tagimpl"
@@ -40,18 +42,6 @@ import (
 	"github.com/grafana/grafana/pkg/setting"
 	"github.com/grafana/grafana/pkg/util"
 )
-
-type FakeFeatures struct {
-	BigTransactions bool
-}
-
-func (f *FakeFeatures) IsEnabled(feature string) bool {
-	if feature == featuremgmt.FlagAlertingBigTransactions {
-		return f.BigTransactions
-	}
-
-	return false
-}
 
 // SetupTestEnv initializes a store to used by the tests.
 func SetupTestEnv(tb testing.TB, baseInterval time.Duration) (*ngalert.AlertNG, *store.DBstore) {
@@ -78,7 +68,9 @@ func SetupTestEnv(tb testing.TB, baseInterval time.Duration) (*ngalert.AlertNG, 
 	m := metrics.NewNGAlert(prometheus.NewRegistry())
 	sqlStore := db.InitTestDB(tb)
 	secretsService := secretsManager.SetupTestService(tb, database.ProvideSecretsStore(sqlStore))
-	dashboardStore := databasestore.ProvideDashboardStore(sqlStore, sqlStore.Cfg, featuremgmt.WithFeatures(), tagimpl.ProvideService(sqlStore, sqlStore.Cfg))
+	quotaService := quotatest.New(false, nil)
+	dashboardStore, err := databasestore.ProvideDashboardStore(sqlStore, sqlStore.Cfg, featuremgmt.WithFeatures(), tagimpl.ProvideService(sqlStore, sqlStore.Cfg), quotaService)
+	require.NoError(tb, err)
 
 	ac := acmock.New()
 	features := featuremgmt.WithFeatures()
@@ -91,12 +83,13 @@ func SetupTestEnv(tb testing.TB, baseInterval time.Duration) (*ngalert.AlertNG, 
 		features, folderPermissions, dashboardPermissions, ac,
 	)
 
-	bus := bus.ProvideBus(tracing.InitializeTracerForTest())
+	tracer := tracing.InitializeTracerForTest()
+	bus := bus.ProvideBus(tracer)
 	folderService := folderimpl.ProvideService(ac, bus, cfg, dashboardService, dashboardStore, nil, features, folderPermissions, nil)
 
 	ng, err := ngalert.ProvideService(
-		cfg, &FakeFeatures{}, nil, nil, routing.NewRouteRegister(), sqlStore, nil, nil, nil, nil,
-		secretsService, nil, m, folderService, ac, &dashboards.FakeDashboardService{}, nil, bus, ac, annotationstest.NewFakeAnnotationsRepo(),
+		cfg, featuremgmt.WithFeatures(), nil, nil, routing.NewRouteRegister(), sqlStore, nil, nil, nil, quotatest.New(false, nil),
+		secretsService, nil, m, folderService, ac, &dashboards.FakeDashboardService{}, nil, bus, ac, annotationstest.NewFakeAnnotationsRepo(), &plugins.FakePluginStore{}, tracer,
 	)
 	require.NoError(tb, err)
 	return ng, &store.DBstore{
@@ -127,10 +120,10 @@ func CreateTestAlertRuleWithLabels(t testing.TB, ctx context.Context, dbstore *s
 	}
 
 	ctx = appcontext.WithUser(ctx, user)
-	_, err := dbstore.FolderService.Create(ctx, &folder.CreateFolderCommand{OrgID: orgID, Title: "FOLDER-" + util.GenerateShortUID(), UID: folderUID})
+	_, err := dbstore.FolderService.Create(ctx, &folder.CreateFolderCommand{OrgID: orgID, Title: "FOLDER-" + util.GenerateShortUID(), UID: folderUID, SignedInUser: user})
 	// var foldr *folder.Folder
 	if errors.Is(err, dashboards.ErrFolderWithSameUIDExists) || errors.Is(err, dashboards.ErrFolderVersionMismatch) {
-		_, err = dbstore.FolderService.Get(ctx, &folder.GetFolderQuery{OrgID: orgID, UID: &folderUID})
+		_, err = dbstore.FolderService.Get(ctx, &folder.GetFolderQuery{OrgID: orgID, UID: &folderUID, SignedInUser: user})
 	}
 	require.NoError(t, err)
 

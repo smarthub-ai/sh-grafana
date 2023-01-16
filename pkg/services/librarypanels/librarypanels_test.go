@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/grafana/grafana/pkg/api/routing"
@@ -28,9 +29,12 @@ import (
 	"github.com/grafana/grafana/pkg/services/guardian"
 	"github.com/grafana/grafana/pkg/services/libraryelements"
 	"github.com/grafana/grafana/pkg/services/org"
+	"github.com/grafana/grafana/pkg/services/org/orgimpl"
+	"github.com/grafana/grafana/pkg/services/quota/quotatest"
 	"github.com/grafana/grafana/pkg/services/tag/tagimpl"
 	"github.com/grafana/grafana/pkg/services/team/teamtest"
 	"github.com/grafana/grafana/pkg/services/user"
+	"github.com/grafana/grafana/pkg/services/user/userimpl"
 	"github.com/grafana/grafana/pkg/setting"
 )
 
@@ -693,7 +697,9 @@ func createDashboard(t *testing.T, sqlStore db.DB, user *user.SignedInUser, dash
 	cfg := setting.NewCfg()
 	cfg.RBACEnabled = false
 	cfg.IsFeatureToggleEnabled = featuremgmt.WithFeatures().IsEnabled
-	dashboardStore := database.ProvideDashboardStore(sqlStore, cfg, featuremgmt.WithFeatures(), tagimpl.ProvideService(sqlStore, cfg))
+	quotaService := quotatest.New(false, nil)
+	dashboardStore, err := database.ProvideDashboardStore(sqlStore, cfg, featuremgmt.WithFeatures(), tagimpl.ProvideService(sqlStore, cfg), quotaService)
+	require.NoError(t, err)
 	dashAlertService := alerting.ProvideDashAlertExtractorService(nil, nil, nil)
 	ac := acmock.New()
 	service := dashboardservice.ProvideDashboardService(
@@ -717,13 +723,15 @@ func createFolderWithACL(t *testing.T, sqlStore db.DB, title string, user *user.
 	features := featuremgmt.WithFeatures()
 	folderPermissions := acmock.NewMockedPermissionsService()
 	dashboardPermissions := acmock.NewMockedPermissionsService()
-	dashboardStore := database.ProvideDashboardStore(sqlStore, cfg, featuremgmt.WithFeatures(), tagimpl.ProvideService(sqlStore, cfg))
+	quotaService := quotatest.New(false, nil)
+	dashboardStore, err := database.ProvideDashboardStore(sqlStore, cfg, featuremgmt.WithFeatures(), tagimpl.ProvideService(sqlStore, cfg), quotaService)
+	require.NoError(t, err)
 	d := dashboardservice.ProvideDashboardService(cfg, dashboardStore, nil, features, folderPermissions, dashboardPermissions, ac)
 	s := folderimpl.ProvideService(ac, bus.ProvideBus(tracing.InitializeTracerForTest()), cfg, d, dashboardStore, nil, features, folderPermissions, nil)
 
 	t.Logf("Creating folder with title and UID %q", title)
 	ctx := appcontext.WithUser(context.Background(), user)
-	folder, err := s.Create(ctx, &folder.CreateFolderCommand{OrgID: user.OrgID, Title: title, UID: title})
+	folder, err := s.Create(ctx, &folder.CreateFolderCommand{OrgID: user.OrgID, Title: title, UID: title, SignedInUser: user})
 	require.NoError(t, err)
 
 	updateFolderACL(t, dashboardStore, folder.ID, items)
@@ -757,7 +765,16 @@ func updateFolderACL(t *testing.T, dashboardStore *database.DashboardStore, fold
 
 func scenarioWithLibraryPanel(t *testing.T, desc string, fn func(t *testing.T, sc scenarioContext)) {
 	store := dbtest.NewFakeDB()
-	guardian.InitLegacyGuardian(store, &dashboards.FakeDashboardService{}, &teamtest.FakeService{})
+
+	dashSvc := dashboards.NewFakeDashboardService(t)
+	dashSvc.On("GetDashboard", mock.Anything, mock.AnythingOfType("*models.GetDashboardQuery")).Run(func(args mock.Arguments) {
+		q := args.Get(1).(*models.GetDashboardQuery)
+		q.Result = &models.Dashboard{
+			Id:  q.Id,
+			Uid: q.Uid,
+		}
+	}).Return(nil)
+	guardian.InitLegacyGuardian(store, dashSvc, &teamtest.FakeService{})
 	t.Helper()
 
 	testScenario(t, desc, func(t *testing.T, sc scenarioContext) {
@@ -811,7 +828,9 @@ func testScenario(t *testing.T, desc string, fn func(t *testing.T, sc scenarioCo
 		orgID := int64(1)
 		role := org.RoleAdmin
 		sqlStore, cfg := db.InitTestDBwithCfg(t)
-		dashboardStore := database.ProvideDashboardStore(sqlStore, cfg, featuremgmt.WithFeatures(), tagimpl.ProvideService(sqlStore, sqlStore.Cfg))
+		quotaService := quotatest.New(false, nil)
+		dashboardStore, err := database.ProvideDashboardStore(sqlStore, cfg, featuremgmt.WithFeatures(), tagimpl.ProvideService(sqlStore, sqlStore.Cfg), quotaService)
+		require.NoError(t, err)
 
 		features := featuremgmt.WithFeatures()
 		ac := acmock.New()
@@ -849,12 +868,13 @@ func testScenario(t *testing.T, desc string, fn func(t *testing.T, sc scenarioCo
 			Name:  "User In DB",
 			Login: userInDbName,
 		}
-
 		ctx := appcontext.WithUser(context.Background(), usr)
-
-		_, err := sqlStore.CreateUser(ctx, cmd)
+		orgSvc, err := orgimpl.ProvideService(sqlStore, sqlStore.Cfg, quotaService)
 		require.NoError(t, err)
-
+		usrSvc, err := userimpl.ProvideService(sqlStore, orgSvc, sqlStore.Cfg, nil, nil, quotaService)
+		require.NoError(t, err)
+		_, err = usrSvc.Create(context.Background(), &cmd)
+		require.NoError(t, err)
 		sc := scenarioContext{
 			user:           usr,
 			ctx:            ctx,
