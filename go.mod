@@ -75,7 +75,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/lib/pq v1.10.7
-	github.com/linkedin/goavro/v2 v2.10.0
+	github.com/linkedin/goavro/v2 v2.12.0
 	github.com/m3db/prometheus_remote_client_golang v0.4.4
 	github.com/magefile/mage v1.14.0
 	github.com/mattn/go-isatty v0.0.14
@@ -274,7 +274,7 @@ require (
 
 require (
 	github.com/dave/dst v0.27.2
-	github.com/parca-dev/parca v0.12.1
+	github.com/parca-dev/parca v0.15.0
 	k8s.io/apimachinery v0.25.3
 )
 
