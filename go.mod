@@ -266,7 +266,7 @@ require (
 
 require (
 	buf.build/gen/go/parca-dev/parca/bufbuild/connect-go v1.4.1-20221222094228-8b1d3d0f62e6.1
-	buf.build/gen/go/parca-dev/parca/protocolbuffers/go v1.28.1-20221222094228-8b1d3d0f62e6.4
+	buf.build/gen/go/parca-dev/parca/protocolbuffers/go v1.28.1-20230222170618-534eac59e3f5.4
 	github.com/Masterminds/semver/v3 v3.1.1
 	github.com/dave/dst v0.27.2
 	github.com/grafana/thema v0.0.0-20230122235053-b4b6714dd1c9
