@@ -161,7 +161,7 @@ require (
 	github.com/go-openapi/spec v0.20.8 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
 	github.com/go-openapi/validate v0.22.1 // indirect
-	github.com/golang-jwt/jwt/v4 v4.4.3
+	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/golang-sql/civil v0.0.0-20190719163853-cb61b32ac6fe // indirect
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
@@ -227,7 +227,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.9.0
 	github.com/Azure/azure-storage-blob-go v0.15.0
-	github.com/Azure/go-autorest/autorest/adal v0.9.21
+	github.com/Azure/go-autorest/autorest/adal v0.9.23
 	github.com/armon/go-radix v1.0.0
 	github.com/blugelabs/bluge v0.1.9
 	github.com/blugelabs/bluge_segment_api v0.2.0
