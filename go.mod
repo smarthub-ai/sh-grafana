@@ -244,7 +244,7 @@ require (
 	github.com/grafana/phlare/api v0.1.4-0.20230426005640-f90edba05413
 	github.com/huandu/xstrings v1.3.1
 	github.com/jmoiron/sqlx v1.3.5
-	github.com/matryer/is v1.4.0
+	github.com/matryer/is v1.4.1
 	github.com/urfave/cli v1.22.12
 	go.etcd.io/etcd/api/v3 v3.5.5
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.40.0
