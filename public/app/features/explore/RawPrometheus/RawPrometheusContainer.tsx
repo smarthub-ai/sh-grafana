@@ -2,21 +2,22 @@ import { css } from '@emotion/css';
 import React, { PureComponent } from 'react';
 import { connect, ConnectedProps } from 'react-redux';
 
-import { applyFieldOverrides, DataFrame, SelectableValue, SplitOpen, TimeZone, ValueLinkConfig } from '@grafana/data';
+import { applyFieldOverrides, DataFrame, SelectableValue, SplitOpen, TimeZone } from '@grafana/data';
 import { reportInteraction } from '@grafana/runtime/src';
 import { Collapse, RadioButtonGroup, Table, AdHocFilterItem } from '@grafana/ui';
 import { config } from 'app/core/config';
 import { PANEL_BORDER } from 'app/core/constants';
 import { StoreState, TABLE_RESULTS_STYLE } from 'app/types';
-import { ExploreId, ExploreItemState, TABLE_RESULTS_STYLES, TableResultsStyle } from 'app/types/explore';
+import { ExploreItemState, TABLE_RESULTS_STYLES, TableResultsStyle } from 'app/types/explore';
 
 import { MetaInfoText } from '../MetaInfoText';
 import RawListContainer from '../PrometheusListView/RawListContainer';
-import { getFieldLinksForExplore } from '../utils/links';
+import { selectIsWaitingForData } from '../state/query';
+import { exploreDataLinkPostProcessorFactory } from '../utils/links';
 
 interface RawPrometheusContainerProps {
   ariaLabel?: string;
-  exploreId: ExploreId;
+  exploreId: string;
   width: number;
   timeZone: TimeZone;
   onCellFilterAdded?: (filter: AdHocFilterItem) => void;
@@ -31,7 +32,8 @@ interface PrometheusContainerState {
 function mapStateToProps(state: StoreState, { exploreId }: RawPrometheusContainerProps) {
   const explore = state.explore;
   const item: ExploreItemState = explore.panes[exploreId]!;
-  const { loading: loadingInState, tableResult, rawPrometheusResult, range } = item;
+  const { tableResult, rawPrometheusResult, range } = item;
+  const loadingInState = selectIsWaitingForData(exploreId)(state);
   const rawPrometheusFrame: DataFrame[] = rawPrometheusResult ? [rawPrometheusResult] : [];
   const result = (tableResult?.length ?? false) > 0 && rawPrometheusResult ? tableResult : rawPrometheusFrame;
   const loading = result && result.length > 0 ? false : loadingInState;
@@ -79,6 +81,7 @@ export class RawPrometheusContainer extends PureComponent<Props, PrometheusConta
     const spacing = css({
       display: 'flex',
       justifyContent: 'space-between',
+      flex: '1',
     });
     const ALL_GRAPH_STYLE_OPTIONS: Array<SelectableValue<TableResultsStyle>> = TABLE_RESULTS_STYLES.map((style) => ({
       value: style,
@@ -115,6 +118,8 @@ export class RawPrometheusContainer extends PureComponent<Props, PrometheusConta
 
     let dataFrames = tableResult;
 
+    const dataLinkPostProcessor = exploreDataLinkPostProcessorFactory(splitOpenFn, range);
+
     if (dataFrames?.length) {
       dataFrames = applyFieldOverrides({
         data: dataFrames,
@@ -125,23 +130,8 @@ export class RawPrometheusContainer extends PureComponent<Props, PrometheusConta
           defaults: {},
           overrides: [],
         },
+        dataLinkPostProcessor,
       });
-      // Bit of code smell here. We need to add links here to the frame modifying the frame on every render.
-      // Should work fine in essence but still not the ideal way to pass props. In logs container we do this
-      // differently and sidestep this getLinks API on a dataframe
-      for (const frame of dataFrames) {
-        for (const field of frame.fields) {
-          field.getLinks = (config: ValueLinkConfig) => {
-            return getFieldLinksForExplore({
-              field,
-              rowIndex: config.valueRowIndex!,
-              splitOpenFn,
-              range,
-              dataFrame: frame!,
-            });
-          };
-        }
-      }
     }
 
     const mainFrame = this.getMainFrame(dataFrames);
