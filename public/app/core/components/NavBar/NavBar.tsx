@@ -67,17 +67,20 @@ export const NavBar = React.memo(() => {
   );
 
   const navTree = cloneDeep(navBarTree).filter((item) => item.hideFromMenu !== true);
+  const unwantedOptions: unknown = { explore: true, alerting: true, profile: true, help: true };
 
-  const coreItems = navTree
-    .filter((item) => item.section === NavSection.Core)
+  let coreItems = navTree
+    .filter((item) => item.section === NavSection.Core && !unwantedOptions[item.id || ''])
     .map((item) => enrichWithInteractionTracking(item, menuOpen));
   const pluginItems = navTree
     .filter((item) => item.section === NavSection.Plugin)
     .map((item) => enrichWithInteractionTracking(item, menuOpen));
   const configItems = enrichConfigItems(
-    navTree.filter((item) => item.section === NavSection.Config),
+    navTree.filter((item) => item.section === NavSection.Config && !unwantedOptions[item.id || '']),
     location
   ).map((item) => enrichWithInteractionTracking(item, menuOpen));
+
+  coreItems = [...coreItems, ...configItems];
 
   const activeItem = isSearchActive(location) ? searchItem : getActiveItem(navTree, location.pathname);
 
@@ -147,7 +150,7 @@ export const NavBar = React.memo(() => {
                     />
                   ))}
 
-                {configItems.map((link, index) => (
+                {/* {configItems.map((link, index) => (
                   <NavBarItem
                     key={`${link.id}-${index}`}
                     isActive={isMatchOrChildMatch(link, activeItem)}
@@ -155,7 +158,7 @@ export const NavBar = React.memo(() => {
                     link={link}
                     className={cx({ [styles.verticalSpacer]: index === 0 })}
                   />
-                ))}
+                ))} */}
               </ul>
             </CustomScrollbar>
           </FocusScope>
@@ -167,7 +170,7 @@ export const NavBar = React.memo(() => {
             activeItem={activeItem}
             isOpen={menuOpen}
             setMenuAnimationInProgress={setMenuAnimationInProgress}
-            navItems={[homeItem, searchItem, ...coreItems, ...pluginItems, ...configItems]}
+            navItems={[homeItem, searchItem, ...coreItems, ...pluginItems]}
             onClose={() => setMenuOpen(false)}
           />
         </div>
