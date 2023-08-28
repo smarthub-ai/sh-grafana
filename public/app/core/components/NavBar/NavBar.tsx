@@ -67,16 +67,15 @@ export const NavBar = React.memo(() => {
   );
 
   const navTree = cloneDeep(navBarTree).filter((item) => item.hideFromMenu !== true);
-  const unwantedOptions: unknown = { explore: true, alerting: true, profile: true, help: true };
 
   let coreItems = navTree
-    .filter((item) => item.section === NavSection.Core && !unwantedOptions[item.id || ''])
+    .filter((item) => item.section === NavSection.Core)
     .map((item) => enrichWithInteractionTracking(item, menuOpen));
   const pluginItems = navTree
     .filter((item) => item.section === NavSection.Plugin)
     .map((item) => enrichWithInteractionTracking(item, menuOpen));
   const configItems = enrichConfigItems(
-    navTree.filter((item) => item.section === NavSection.Config && !unwantedOptions[item.id || '']),
+    navTree.filter((item) => item.section === NavSection.Config),
     location
   ).map((item) => enrichWithInteractionTracking(item, menuOpen));
 
