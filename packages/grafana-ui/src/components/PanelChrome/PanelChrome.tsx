@@ -316,6 +316,8 @@ const getStyles = (theme: GrafanaTheme2) => {
       whiteSpace: 'nowrap',
       fontSize: theme.typography.h6.fontSize,
       fontWeight: theme.typography.h6.fontWeight,
+      width: '100%',
+      textAlign: 'center',
     }),
     items: css({
       display: 'flex',
