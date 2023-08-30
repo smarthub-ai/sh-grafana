@@ -7,13 +7,13 @@ import { useStyles2 } from '@grafana/ui';
 import { useGrafana } from 'app/core/context/GrafanaContext';
 import { CommandPalette } from 'app/features/commandPalette/CommandPalette';
 import { SearchWrapper } from 'app/features/search';
-import { KioskMode } from 'app/types';
+// import { KioskMode } from 'app/types';
 
 import { MegaMenu } from '../MegaMenu/MegaMenu';
 import { NavBar } from '../NavBar/NavBar';
 
 import { NavToolbar } from './NavToolbar';
-import { TopSearchBar } from './TopSearchBar';
+// import { TopSearchBar } from './TopSearchBar';
 import { TOP_BAR_LEVEL_HEIGHT } from './types';
 
 export interface Props extends PropsWithChildren<{}> {}
@@ -38,7 +38,8 @@ export function AppChrome({ children }: Props) {
     );
   }
 
-  const searchBarHidden = state.searchBarHidden || state.kioskMode === KioskMode.TV;
+  // const searchBarHidden = state.searchBarHidden || state.kioskMode === KioskMode.TV;
+  const searchBarHidden = true;
 
   const contentClass = cx({
     [styles.content]: true,
@@ -54,7 +55,7 @@ export function AppChrome({ children }: Props) {
     <main className="main-view">
       {!state.chromeless && (
         <div className={cx(styles.topNav)}>
-          {!searchBarHidden && <TopSearchBar />}
+          {/* {!searchBarHidden && <TopSearchBar />} */}
           <NavToolbar
             searchBarHidden={searchBarHidden}
             sectionNav={state.sectionNav}

@@ -3,15 +3,17 @@ import React from 'react';
 
 import { GrafanaTheme2, NavModelItem } from '@grafana/data';
 import { Components } from '@grafana/e2e-selectors';
-import { Icon, IconButton, ToolbarButton, useStyles2 } from '@grafana/ui';
+import { IconButton, useStyles2 } from '@grafana/ui';
+import { config } from 'app/core/config';
 import { t } from 'app/core/internationalization';
 import { HOME_NAV_ID } from 'app/core/reducers/navModel';
 import { useSelector } from 'app/types';
 
+import { Branding } from '../Branding/Branding';
 import { Breadcrumbs } from '../Breadcrumbs/Breadcrumbs';
 import { buildBreadcrumbs } from '../Breadcrumbs/utils';
 
-import { NavToolbarSeparator } from './NavToolbarSeparator';
+// import { NavToolbarSeparator } from './NavToolbarSeparator';
 import { TOP_BAR_LEVEL_HEIGHT } from './types';
 
 export interface Props {
@@ -37,8 +39,13 @@ export function NavToolbar({
   const styles = useStyles2(getStyles);
   const breadcrumbs = buildBreadcrumbs(sectionNav, pageNav, homeNav);
 
+  let homeUrl = config.appSubUrl || '/';
+
   return (
     <div data-testid={Components.NavToolbar.container} className={styles.pageToolbar}>
+      <a className={styles.logo} href={homeUrl} title="Go to home">
+        <Branding.MenuLogo className={styles.img} />
+      </a>
       <div className={styles.menuButton}>
         <IconButton
           name="bars"
@@ -51,8 +58,11 @@ export function NavToolbar({
       <Breadcrumbs breadcrumbs={breadcrumbs} className={styles.breadcrumbs} />
       <div className={styles.actions}>
         {actions}
-        {actions && <NavToolbarSeparator />}
-        {searchBarHidden && (
+        {/* <a className={styles.logo} href={homeUrl} title="Go to home">
+          <Branding.MenuLogo className={styles.img} />
+        </a> */}
+        {/* {actions && <NavToolbarSeparator />} */}
+        {/* {searchBarHidden && (
           <ToolbarButton
             onClick={onToggleKioskMode}
             narrow
@@ -66,7 +76,7 @@ export function NavToolbar({
           title={t('navigation.toolbar.toggle-search-bar', 'Toggle top search bar')}
         >
           <Icon name={searchBarHidden ? 'angle-down' : 'angle-up'} size="xl" />
-        </ToolbarButton>
+        </ToolbarButton> */}
       </div>
     </div>
   );
@@ -98,6 +108,13 @@ const getStyles = (theme: GrafanaTheme2) => {
       flexGrow: 1,
       gap: theme.spacing(0.5),
       minWidth: 0,
+    }),
+    img: css({
+      height: theme.spacing(3),
+      width: theme.spacing(3),
+    }),
+    logo: css({
+      display: 'flex',
     }),
   };
 };
