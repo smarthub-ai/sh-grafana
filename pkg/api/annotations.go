@@ -55,8 +55,6 @@ func (hs *HTTPServer) GetAnnotations(c *contextmodel.ReqContext) response.Respon
 		if err != nil {
 			if hs.Features.IsEnabled(featuremgmt.FlagDashboardsFromStorage) {
 				// OK... the storage UIDs do not (yet?) exist in the DashboardService
-			} else {
-				return response.Error(http.StatusBadRequest, "Invalid dashboard UID in annotation request", err)
 			}
 		} else {
 			query.DashboardId = dqResult.ID
