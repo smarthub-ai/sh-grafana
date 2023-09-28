@@ -218,7 +218,7 @@ const EmptyRecentList = memo(() => {
   const styles = getEmptyListStyles(theme);
 
   return (
-    <div className={styles.container}>
+    <div className={styles.container} style={{opacity: 0}}>
       <Trans i18nKey="time-picker.content.empty-recent-list">
         <div>
           <span>
