@@ -1,5 +1,6 @@
 import { cx } from '@emotion/css';
 import { debounce } from 'lodash';
+import memoizeOne from 'memoize-one';
 import React, { PureComponent } from 'react';
 
 import { Field, LinkModel, LogRowModel, LogsSortOrder, dateTimeFormat, CoreApp, DataFrame } from '@grafana/data';
@@ -29,11 +30,11 @@ interface Props extends Themeable2 {
   app?: CoreApp;
   displayedFields?: string[];
   getRows: () => LogRowModel[];
-  onClickFilterLabel?: (key: string, value: string) => void;
-  onClickFilterOutLabel?: (key: string, value: string) => void;
+  onClickFilterLabel?: (key: string, value: string, refId?: string) => void;
+  onClickFilterOutLabel?: (key: string, value: string, refId?: string) => void;
   onContextClick?: () => void;
   getFieldLinks?: (field: Field, rowIndex: number, dataFrame: DataFrame) => Array<LinkModel<Field>>;
-  showContextToggle?: (row?: LogRowModel) => boolean;
+  showContextToggle?: (row: LogRowModel) => boolean;
   onClickShowField?: (key: string) => void;
   onClickHideField?: (key: string) => void;
   onLogRowHover?: (row?: LogRowModel) => void;
@@ -42,7 +43,7 @@ interface Props extends Themeable2 {
   styles: LogRowStyles;
   permalinkedRowId?: string;
   scrollIntoView?: (element: HTMLElement) => void;
-  isFilterLabelActive?: (key: string, value: string) => Promise<boolean>;
+  isFilterLabelActive?: (key: string, value: string, refId?: string) => Promise<boolean>;
   onPinLine?: (row: LogRowModel) => void;
   onUnpinLine?: (row: LogRowModel) => void;
   pinned?: boolean;
@@ -157,6 +158,12 @@ class UnThemedLogRow extends PureComponent<Props, State> {
     }
   };
 
+  escapeRow = memoizeOne((row: LogRowModel, forceEscape: boolean | undefined) => {
+    return row.hasUnescapedContent && forceEscape
+      ? { ...row, entry: escapeUnescapedString(row.entry), raw: escapeUnescapedString(row.raw) }
+      : row;
+  });
+
   render() {
     const {
       getRows,
@@ -191,10 +198,7 @@ class UnThemedLogRow extends PureComponent<Props, State> {
       [styles.highlightBackground]: permalinked && !this.state.showDetails,
     });
 
-    const processedRow =
-      row.hasUnescapedContent && forceEscape
-        ? { ...row, entry: escapeUnescapedString(row.entry), raw: escapeUnescapedString(row.raw) }
-        : row;
+    const processedRow = this.escapeRow(row, forceEscape);
 
     return (
       <>

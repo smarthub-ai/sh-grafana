@@ -16,6 +16,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	grafanaapiserver "github.com/grafana/grafana/pkg/services/grafana-apiserver"
+	"github.com/grafana/grafana/pkg/services/grafana-apiserver/endpoints/request"
+
 	"github.com/grafana/grafana/pkg/api/avatar"
 	"github.com/grafana/grafana/pkg/api/routing"
 	httpstatic "github.com/grafana/grafana/pkg/api/static"
@@ -70,6 +73,7 @@ import (
 	"github.com/grafana/grafana/pkg/services/plugindashboards"
 	"github.com/grafana/grafana/pkg/services/pluginsintegration/plugincontext"
 	pluginSettings "github.com/grafana/grafana/pkg/services/pluginsintegration/pluginsettings"
+	"github.com/grafana/grafana/pkg/services/pluginsintegration/pluginstore"
 	pref "github.com/grafana/grafana/pkg/services/preference"
 	"github.com/grafana/grafana/pkg/services/provisioning"
 	publicdashboardsApi "github.com/grafana/grafana/pkg/services/publicdashboards/api"
@@ -90,7 +94,6 @@ import (
 	starApi "github.com/grafana/grafana/pkg/services/star/api"
 	"github.com/grafana/grafana/pkg/services/stats"
 	"github.com/grafana/grafana/pkg/services/store"
-	"github.com/grafana/grafana/pkg/services/store/entity/httpentitystore"
 	"github.com/grafana/grafana/pkg/services/tag"
 	"github.com/grafana/grafana/pkg/services/team"
 	tempUser "github.com/grafana/grafana/pkg/services/temp_user"
@@ -130,7 +133,7 @@ type HTTPServer struct {
 	DataProxy                    *datasourceproxy.DataSourceProxyService
 	PluginRequestValidator       validations.PluginRequestValidator
 	pluginClient                 plugins.Client
-	pluginStore                  plugins.Store
+	pluginStore                  pluginstore.Store
 	pluginInstaller              plugins.Installer
 	pluginFileStore              plugins.FileStore
 	pluginDashboardService       plugindashboards.Service
@@ -143,7 +146,6 @@ type HTTPServer struct {
 	Live                         *live.GrafanaLive
 	LivePushGateway              *pushhttp.Gateway
 	StorageService               store.StorageService
-	httpEntityStore              httpentitystore.HTTPEntityStore
 	SearchV2HTTPService          searchV2.SearchHTTPService
 	ContextHandler               *contexthandler.ContextHandler
 	LoggerMiddleware             loggermw.Logger
@@ -169,7 +171,6 @@ type HTTPServer struct {
 	queryDataService             query.Service
 	serviceAccountsService       serviceaccounts.Service
 	authInfoService              login.AuthInfoService
-	teamPermissionsService       accesscontrol.TeamPermissionsService
 	NotificationService          *notifications.NotificationService
 	DashboardService             dashboards.DashboardService
 	dashboardProvisioningService dashboards.DashboardProvisioningService
@@ -205,6 +206,8 @@ type HTTPServer struct {
 	authnService         authn.Service
 	starApi              *starApi.API
 	promRegister         prometheus.Registerer
+	clientConfigProvider grafanaapiserver.DirectRestConfigProvider
+	namespacer           request.NamespaceMapper
 }
 
 type ServerOptions struct {
@@ -215,7 +218,7 @@ func ProvideHTTPServer(opts ServerOptions, cfg *setting.Cfg, routeRegister routi
 	renderService rendering.Service, licensing licensing.Licensing, hooksService *hooks.HooksService,
 	cacheService *localcache.CacheService, sqlStore *sqlstore.SQLStore, alertEngine *alerting.AlertEngine,
 	pluginRequestValidator validations.PluginRequestValidator, pluginStaticRouteResolver plugins.StaticRouteResolver,
-	pluginDashboardService plugindashboards.Service, pluginStore plugins.Store, pluginClient plugins.Client,
+	pluginDashboardService plugindashboards.Service, pluginStore pluginstore.Store, pluginClient plugins.Client,
 	pluginErrorResolver plugins.ErrorResolver, pluginInstaller plugins.Installer, settingsProvider setting.Provider,
 	dataSourceCache datasources.CacheService, userTokenService auth.UserTokenService,
 	cleanUpService *cleanup.CleanUpService, shortURLService shorturls.Service, queryHistoryService queryhistory.Service,
@@ -229,13 +232,13 @@ func ProvideHTTPServer(opts ServerOptions, cfg *setting.Cfg, routeRegister routi
 	pluginsUpdateChecker *updatechecker.PluginsService, searchUsersService searchusers.Service,
 	dataSourcesService datasources.DataSourceService, queryDataService query.Service, pluginFileStore plugins.FileStore,
 	serviceaccountsService serviceaccounts.Service,
-	authInfoService login.AuthInfoService, storageService store.StorageService, httpEntityStore httpentitystore.HTTPEntityStore,
+	authInfoService login.AuthInfoService, storageService store.StorageService,
 	notificationService *notifications.NotificationService, dashboardService dashboards.DashboardService,
 	dashboardProvisioningService dashboards.DashboardProvisioningService, folderService folder.Service,
 	dsGuardian guardian.DatasourceGuardianProvider, alertNotificationService *alerting.AlertNotificationService,
 	dashboardsnapshotsService dashboardsnapshots.Service, pluginSettings pluginSettings.Service,
 	avatarCacheServer *avatar.AvatarCacheServer, preferenceService pref.Service,
-	teamsPermissionsService accesscontrol.TeamPermissionsService, folderPermissionsService accesscontrol.FolderPermissionsService,
+	folderPermissionsService accesscontrol.FolderPermissionsService,
 	dashboardPermissionsService accesscontrol.DashboardPermissionsService, dashboardVersionService dashver.Service,
 	starService star.Service, csrfService csrf.Service, basekinds *corekind.Base,
 	playlistService playlist.Service, apiKeyService apikey.Service, kvStore kvstore.KVStore,
@@ -246,8 +249,7 @@ func ProvideHTTPServer(opts ServerOptions, cfg *setting.Cfg, routeRegister routi
 	accesscontrolService accesscontrol.Service, navTreeService navtree.Service,
 	annotationRepo annotations.Repository, tagService tag.Service, searchv2HTTPService searchV2.SearchHTTPService, oauthTokenService oauthtoken.OAuthTokenService,
 	statsService stats.Service, authnService authn.Service, pluginsCDNService *pluginscdn.Service,
-	starApi *starApi.API, promRegister prometheus.Registerer,
-
+	starApi *starApi.API, promRegister prometheus.Registerer, clientConfigProvider grafanaapiserver.DirectRestConfigProvider,
 ) (*HTTPServer, error) {
 	web.Env = cfg.Env
 	m := web.New()
@@ -307,7 +309,6 @@ func ProvideHTTPServer(opts ServerOptions, cfg *setting.Cfg, routeRegister routi
 		secretsMigrator:              secretsMigrator,
 		secretsPluginMigrator:        secretsPluginMigrator,
 		secretsStore:                 secretsStore,
-		httpEntityStore:              httpEntityStore,
 		DataSourcesService:           dataSourcesService,
 		searchUsersService:           searchUsersService,
 		queryDataService:             queryDataService,
@@ -318,7 +319,6 @@ func ProvideHTTPServer(opts ServerOptions, cfg *setting.Cfg, routeRegister routi
 		dashboardProvisioningService: dashboardProvisioningService,
 		folderService:                folderService,
 		dsGuardian:                   dsGuardian,
-		teamPermissionsService:       teamsPermissionsService,
 		AlertNotificationService:     alertNotificationService,
 		dashboardsnapshotsService:    dashboardsnapshotsService,
 		PluginSettings:               pluginSettings,
@@ -349,6 +349,8 @@ func ProvideHTTPServer(opts ServerOptions, cfg *setting.Cfg, routeRegister routi
 		pluginsCDNService:            pluginsCDNService,
 		starApi:                      starApi,
 		promRegister:                 promRegister,
+		clientConfigProvider:         clientConfigProvider,
+		namespacer:                   request.GetNamespaceMapper(cfg),
 	}
 	if hs.Listener != nil {
 		hs.log.Debug("Using provided listener")
@@ -678,6 +680,9 @@ func (hs *HTTPServer) apiHealthHandler(ctx *web.Context) {
 	if !hs.Cfg.AnonymousHideVersion {
 		data.Set("version", hs.Cfg.BuildVersion)
 		data.Set("commit", hs.Cfg.BuildCommit)
+		if hs.Cfg.EnterpriseBuildCommit != "NA" && hs.Cfg.EnterpriseBuildCommit != "" {
+			data.Set("enterpriseCommit", hs.Cfg.EnterpriseBuildCommit)
+		}
 	}
 
 	if !hs.databaseHealthy(ctx.Req.Context()) {

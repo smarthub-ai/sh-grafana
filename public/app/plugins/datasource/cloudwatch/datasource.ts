@@ -72,6 +72,7 @@ export class CloudWatchDatasource
     this.annotationQueryRunner = new CloudWatchAnnotationQueryRunner(instanceSettings, templateSrv);
     this.variables = new CloudWatchVariableSupport(this.resources);
     this.annotations = CloudWatchAnnotationSupport;
+    this.defaultLogGroups = instanceSettings.jsonData.defaultLogGroups;
   }
 
   filterQuery(query: CloudWatchQuery) {
@@ -153,10 +154,6 @@ export class CloudWatchDatasource
       target.logGroupNames?.some((logGroup: string) => this.templateSrv.containsTemplate(logGroup)) ||
       find(target.dimensions, (v, k) => this.templateSrv.containsTemplate(k) || this.templateSrv.containsTemplate(v))
     );
-  }
-
-  showContextToggle() {
-    return true;
   }
 
   getQueryDisplayText(query: CloudWatchQuery) {

@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import React from 'react';
 
 import { Field, LogLevel, LogRowModel, MutableDataFrame, createTheme, FieldType } from '@grafana/data';
@@ -55,8 +56,37 @@ describe('LogDetails', () => {
         },
         { labels: { key1: 'label1' } }
       );
-      expect(screen.getByLabelText('Filter for value')).toBeInTheDocument();
-      expect(screen.getByLabelText('Filter out value')).toBeInTheDocument();
+      expect(screen.getByLabelText('Filter for value in query A')).toBeInTheDocument();
+      expect(screen.getByLabelText('Filter out value in query A')).toBeInTheDocument();
+    });
+    describe('Toggleable filters', () => {
+      it('should provide the log row to Explore filter functions', async () => {
+        const onClickFilterLabelMock = jest.fn();
+        const onClickFilterOutLabelMock = jest.fn();
+        const isFilterLabelActiveMock = jest.fn().mockResolvedValue(true);
+        const mockRow = createLogRow({
+          logLevel: LogLevel.error,
+          timeEpochMs: 1546297200000,
+          labels: { key1: 'label1' },
+        });
+
+        setup({
+          onClickFilterLabel: onClickFilterLabelMock,
+          onClickFilterOutLabel: onClickFilterOutLabelMock,
+          isFilterLabelActive: isFilterLabelActiveMock,
+          row: mockRow,
+        });
+
+        expect(isFilterLabelActiveMock).toHaveBeenCalledWith('key1', 'label1', mockRow.dataFrame.refId);
+
+        await userEvent.click(screen.getByLabelText('Filter for value in query A'));
+        expect(onClickFilterLabelMock).toHaveBeenCalledTimes(1);
+        expect(onClickFilterLabelMock).toHaveBeenCalledWith('key1', 'label1', mockRow.dataFrame.refId);
+
+        await userEvent.click(screen.getByLabelText('Filter out value in query A'));
+        expect(onClickFilterOutLabelMock).toHaveBeenCalledTimes(1);
+        expect(onClickFilterOutLabelMock).toHaveBeenCalledWith('key1', 'label1', mockRow.dataFrame.refId);
+      });
     });
     it('should not render filter controls when the callbacks are not provided', () => {
       setup(

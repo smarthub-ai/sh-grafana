@@ -68,32 +68,6 @@ func dashboardGuardianResponse(err error) response.Response {
 	return response.Error(http.StatusForbidden, "Access denied to this dashboard", nil)
 }
 
-// swagger:route POST /dashboards/trim dashboards trimDashboard
-//
-// Trim defaults from dashboard.
-//
-// Responses:
-// 200: trimDashboardResponse
-// 401: unauthorisedError
-// 500: internalServerError
-func (hs *HTTPServer) TrimDashboard(c *contextmodel.ReqContext) response.Response {
-	cmd := dashboards.TrimDashboardCommand{}
-	if err := web.Bind(c.Req, &cmd); err != nil {
-		return response.Error(http.StatusBadRequest, "bad request data", err)
-	}
-	dash := cmd.Dashboard
-	meta := cmd.Meta
-
-	// TODO temporarily just return the input as a no-op while we convert to thema calls
-	dto := dtos.TrimDashboardFullWithMeta{
-		Dashboard: dash,
-		Meta:      meta,
-	}
-
-	c.TimeRequest(metrics.MApiDashboardGet)
-	return response.JSON(http.StatusOK, dto)
-}
-
 // swagger:route GET /dashboards/uid/{uid} dashboards getDashboardByUID
 //
 // Get dashboard by uid.
@@ -120,7 +94,7 @@ func (hs *HTTPServer) GetDashboard(c *contextmodel.ReqContext) response.Response
 
 	// If public dashboards is enabled and we have a public dashboard, update meta
 	// values
-	if hs.Features.IsEnabled(featuremgmt.FlagPublicDashboards) {
+	if hs.Features.IsEnabledGlobally(featuremgmt.FlagPublicDashboards) {
 		publicDashboard, err := hs.PublicDashboardsApi.PublicDashboardService.FindByDashboardUid(c.Req.Context(), c.SignedInUser.GetOrgID(), dash.UID)
 		if err != nil && !errors.Is(err, publicdashboardModels.ErrPublicDashboardNotFound) {
 			return response.Error(http.StatusInternalServerError, "Error while retrieving public dashboards", err)
@@ -190,7 +164,7 @@ func (hs *HTTPServer) GetDashboard(c *contextmodel.ReqContext) response.Response
 		Version:                dash.Version,
 		HasACL:                 dash.HasACL,
 		IsFolder:               dash.IsFolder,
-		FolderId:               dash.FolderID,
+		FolderId:               dash.FolderID, // nolint:staticcheck
 		Url:                    dash.GetURL(),
 		FolderTitle:            "General",
 		AnnotationsPermissions: annotationPermissions,
@@ -392,29 +366,6 @@ func (hs *HTTPServer) PostDashboard(c *contextmodel.ReqContext) response.Respons
 	if err := web.Bind(c.Req, &cmd); err != nil {
 		return response.Error(http.StatusBadRequest, "bad request data", err)
 	}
-
-	if hs.Features.IsEnabled(featuremgmt.FlagValidateDashboardsOnSave) {
-		kind := hs.Kinds.Dashboard()
-
-		dashbytes, err := cmd.Dashboard.Bytes()
-		if err != nil {
-			return response.Error(http.StatusBadRequest, "unable to parse dashboard", err)
-		}
-		// Ideally, coremodel validation calls would be integrated into the web
-		// framework. But this does the job for now.
-		schv, err := cmd.Dashboard.Get("schemaVersion").Int()
-
-		// Only try to validate if the schemaVersion is at least the handoff version
-		// (the minimum schemaVersion against which the dashboard schema is known to
-		// work), or if schemaVersion is absent (which will happen once the kind schema
-		// becomes canonical).
-		if err != nil || schv >= dashboard.HandoffSchemaVersion {
-			if _, _, err := kind.JSONValueMux(dashbytes); err != nil {
-				return response.Error(http.StatusBadRequest, "invalid dashboard json", err)
-			}
-		}
-	}
-
 	return hs.postDashboard(c, cmd)
 }
 
@@ -422,22 +373,26 @@ func (hs *HTTPServer) postDashboard(c *contextmodel.ReqContext, cmd dashboards.S
 	ctx := c.Req.Context()
 	var err error
 
+	userID := int64(0)
 	namespaceID, userIDstr := c.SignedInUser.GetNamespacedID()
 	if namespaceID != identity.NamespaceUser && namespaceID != identity.NamespaceServiceAccount {
-		hs.log.Warn("User does not belong to a user or service account namespace", "namespaceID", namespaceID, "userID", userIDstr)
-		return response.Error(http.StatusBadRequest, "User does not belong to a user or service account namespace", nil)
-	}
-	userID, err := identity.IntIdentifier(namespaceID, userIDstr)
-	if err != nil {
-		hs.log.Warn("Error while parsing user ID", "namespaceID", namespaceID, "userID", userIDstr)
+		hs.log.Debug("User does not belong to a user or service account namespace", "namespaceID", namespaceID, "userID", userIDstr)
+	} else {
+		userID, err = identity.IntIdentifier(namespaceID, userIDstr)
+		if err != nil {
+			hs.log.Debug("Error while parsing user ID", "namespaceID", namespaceID, "userID", userIDstr)
+		}
 	}
 
 	cmd.OrgID = c.SignedInUser.GetOrgID()
 	cmd.UserID = userID
-	if cmd.FolderUID != "" {
+	// nolint:staticcheck
+	if cmd.FolderUID != "" || cmd.FolderID != 0 {
 		folder, err := hs.folderService.Get(ctx, &folder.GetFolderQuery{
-			OrgID:        c.SignedInUser.GetOrgID(),
-			UID:          &cmd.FolderUID,
+			OrgID: c.SignedInUser.GetOrgID(),
+			UID:   &cmd.FolderUID,
+			// nolint:staticcheck
+			ID:           &cmd.FolderID,
 			SignedInUser: c.SignedInUser,
 		})
 		if err != nil {
@@ -446,7 +401,9 @@ func (hs *HTTPServer) postDashboard(c *contextmodel.ReqContext, cmd dashboards.S
 			}
 			return response.Error(http.StatusInternalServerError, "Error while checking folder ID", err)
 		}
+		// nolint:staticcheck
 		cmd.FolderID = folder.ID
+		cmd.FolderUID = folder.UID
 	}
 
 	dash := cmd.GetDashboardModel()
@@ -454,7 +411,7 @@ func (hs *HTTPServer) postDashboard(c *contextmodel.ReqContext, cmd dashboards.S
 	if newDashboard {
 		limitReached, err := hs.QuotaService.QuotaReached(c, dashboards.QuotaTargetSrv)
 		if err != nil {
-			return response.Error(http.StatusInternalServerError, "failed to get quota", err)
+			return response.Error(http.StatusInternalServerError, "Failed to get quota", err)
 		}
 		if limitReached {
 			return response.Error(http.StatusForbidden, "Quota reached", nil)
@@ -516,7 +473,7 @@ func (hs *HTTPServer) postDashboard(c *contextmodel.ReqContext, cmd dashboards.S
 		}
 
 		if liveerr != nil {
-			hs.log.Warn("unable to broadcast save event", "uid", dashboard.UID, "error", liveerr)
+			hs.log.Warn("Unable to broadcast save event", "uid", dashboard.UID, "error", liveerr)
 		}
 	}
 
@@ -538,12 +495,13 @@ func (hs *HTTPServer) postDashboard(c *contextmodel.ReqContext, cmd dashboards.S
 
 	c.TimeRequest(metrics.MApiDashboardSave)
 	return response.JSON(http.StatusOK, util.DynMap{
-		"status":  "success",
-		"slug":    dashboard.Slug,
-		"version": dashboard.Version,
-		"id":      dashboard.ID,
-		"uid":     dashboard.UID,
-		"url":     dashboard.GetURL(),
+		"status":    "success",
+		"slug":      dashboard.Slug,
+		"version":   dashboard.Version,
+		"id":        dashboard.ID,
+		"uid":       dashboard.UID,
+		"url":       dashboard.GetURL(),
+		"folderUid": dashboard.FolderUID,
 	})
 }
 
@@ -556,16 +514,18 @@ func (hs *HTTPServer) postDashboard(c *contextmodel.ReqContext, cmd dashboards.S
 // 401: unauthorisedError
 // 500: internalServerError
 func (hs *HTTPServer) GetHomeDashboard(c *contextmodel.ReqContext) response.Response {
+	userID := int64(0)
+	var err error
 	namespaceID, userIDstr := c.SignedInUser.GetNamespacedID()
-
-	if namespaceID != identity.NamespaceUser {
-		return response.Error(http.StatusBadRequest, "User does not belong to a user namespace", nil)
+	if namespaceID != identity.NamespaceUser && namespaceID != identity.NamespaceServiceAccount {
+		hs.log.Debug("User does not belong to a user or service account namespace", "namespaceID", namespaceID, "userID", userIDstr)
+	} else {
+		userID, err = identity.IntIdentifier(namespaceID, userIDstr)
+		if err != nil {
+			hs.log.Debug("Error while parsing user ID", "namespaceID", namespaceID, "userID", userIDstr)
+		}
 	}
 
-	userID, err := identity.IntIdentifier(namespaceID, userIDstr)
-	if err != nil {
-		hs.log.Warn("Error while parsing user ID", "namespaceID", namespaceID, "userID", userIDstr, "err", err)
-	}
 	prefsQuery := pref.GetPreferenceWithDefaultsQuery{OrgID: c.SignedInUser.GetOrgID(), UserID: userID, Teams: c.SignedInUser.GetTeams()}
 	homePage := hs.Cfg.HomePage
 
@@ -864,7 +824,7 @@ func (hs *HTTPServer) ValidateDashboard(c *contextmodel.ReqContext) response.Res
 	cmd := dashboards.ValidateDashboardCommand{}
 
 	if err := web.Bind(c.Req, &cmd); err != nil {
-		return response.Error(http.StatusBadRequest, "bad request data", err)
+		return response.Error(http.StatusBadRequest, "Bad request data", err)
 	}
 
 	dk := hs.Kinds.Dashboard()
@@ -1074,13 +1034,15 @@ func (hs *HTTPServer) RestoreDashboardVersion(c *contextmodel.ReqContext) respon
 		return response.Error(http.StatusNotFound, "Dashboard version not found", nil)
 	}
 
+	userID := int64(0)
 	namespaceID, userIDstr := c.SignedInUser.GetNamespacedID()
 	if namespaceID != identity.NamespaceUser && namespaceID != identity.NamespaceServiceAccount {
-		return response.Error(http.StatusBadRequest, "User does not belong to a user or service namespace", nil)
-	}
-	userID, err := identity.IntIdentifier(namespaceID, userIDstr)
-	if err != nil {
-		return response.Error(http.StatusInternalServerError, "failed to get user id", err)
+		hs.log.Warn("User does not belong to a user or service account namespace", "namespaceID", namespaceID, "userID", userIDstr)
+	} else {
+		userID, err = identity.IntIdentifier(namespaceID, userIDstr)
+		if err != nil {
+			hs.log.Warn("Error while parsing user ID", "namespaceID", namespaceID, "userID", userIDstr)
+		}
 	}
 
 	saveCmd := dashboards.SaveDashboardCommand{}
@@ -1091,7 +1053,9 @@ func (hs *HTTPServer) RestoreDashboardVersion(c *contextmodel.ReqContext) respon
 	saveCmd.Dashboard.Set("version", dash.Version)
 	saveCmd.Dashboard.Set("uid", dash.UID)
 	saveCmd.Message = fmt.Sprintf("Restored from version %d", version.Version)
+	// nolint:staticcheck
 	saveCmd.FolderID = dash.FolderID
+	saveCmd.FolderUID = dash.FolderUID
 
 	return hs.postDashboard(c, saveCmd)
 }
@@ -1243,13 +1207,6 @@ type CalcDashboardDiffParams struct {
 	}
 }
 
-// swagger:parameters trimDashboard
-type TrimDashboardParams struct {
-	// in:body
-	// required:true
-	Body dashboards.TrimDashboardCommand
-}
-
 // swagger:response dashboardResponse
 type DashboardResponse struct {
 	// The response message
@@ -1301,7 +1258,7 @@ type PostDashboardResponse struct {
 		// ID The unique identifier (id) of the created/updated dashboard.
 		// required: true
 		// example: 1
-		ID string `json:"id"`
+		ID int64 `json:"id"`
 
 		// UID The unique identifier (uid) of the created/updated dashboard.
 		// required: true
@@ -1312,6 +1269,10 @@ type PostDashboardResponse struct {
 		// required: true
 		// example: /d/nHz3SXiiz/my-dashboard
 		URL string `json:"url"`
+
+		// FolderUID The unique identifier (uid) of the folder the dashboard belongs to.
+		// required: false
+		FolderUID string `json:"folderUid"`
 	} `json:"body"`
 }
 
@@ -1319,12 +1280,6 @@ type PostDashboardResponse struct {
 type CalculateDashboardDiffResponse struct {
 	// in: body
 	Body []byte `json:"body"`
-}
-
-// swagger:response trimDashboardResponse
-type TrimDashboardResponse struct {
-	// in: body
-	Body dtos.TrimDashboardFullWithMeta `json:"body"`
 }
 
 // swagger:response getHomeDashboardResponse

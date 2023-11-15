@@ -2,6 +2,7 @@ package response
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,10 +13,13 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/grafana/grafana/pkg/infra/tracing"
+	"github.com/grafana/grafana/pkg/middleware/requestmeta"
 	contextmodel "github.com/grafana/grafana/pkg/services/contexthandler/model"
-	"github.com/grafana/grafana/pkg/setting"
 	"github.com/grafana/grafana/pkg/util/errutil"
 )
+
+var errRequestCanceledBase = errutil.ClientClosedRequest("api.requestCanceled",
+	errutil.WithPublicMessage("Request canceled"))
 
 // Response is an HTTP response interface.
 type Response interface {
@@ -80,6 +84,11 @@ func (r *NormalResponse) ErrMessage() string {
 
 func (r *NormalResponse) WriteTo(ctx *contextmodel.ReqContext) {
 	if r.err != nil {
+		grafanaErr := errutil.Error{}
+		if errors.As(r.err, &grafanaErr) && grafanaErr.Source.IsDownstream() {
+			requestmeta.WithDownstreamStatusSource(ctx.Req.Context())
+		}
+
 		if errutil.HasUnifiedLogging(ctx.Req.Context()) {
 			ctx.Error = r.err
 		} else {
@@ -243,12 +252,6 @@ func Error(status int, message string, err error) *NormalResponse {
 		data["message"] = message
 	}
 
-	if err != nil {
-		if setting.Env != setting.Prod {
-			data["error"] = err.Error()
-		}
-	}
-
 	resp := JSON(status, data)
 
 	if err != nil {
@@ -280,10 +283,16 @@ func Err(err error) *NormalResponse {
 // The signature is equivalent to that of Error which allows us to
 // rename this to Error when we're confident that that would be safe to
 // do.
+// If the error provided is not an errutil.Error and is/wraps context.Canceled
+// the function returns an Err(errRequestCanceledBase).
 func ErrOrFallback(status int, message string, err error) *NormalResponse {
 	grafanaErr := errutil.Error{}
 	if errors.As(err, &grafanaErr) {
 		return Err(err)
+	}
+
+	if errors.Is(err, context.Canceled) {
+		return Err(errRequestCanceledBase.Errorf("response: request canceled: %w", err))
 	}
 
 	return Error(status, message, err)

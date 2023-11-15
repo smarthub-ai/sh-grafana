@@ -8,10 +8,16 @@ import { usePopper } from 'react-popper';
 import { useMedia } from 'react-use';
 
 import { dateTimeFormat, DateTime, dateTime, GrafanaTheme2, isDateTime } from '@grafana/data';
+import { Components } from '@grafana/e2e-selectors';
 
-import { Button, HorizontalGroup, Icon, InlineField, Input, Portal } from '../..';
 import { useStyles2, useTheme2 } from '../../../themes';
+import { Button } from '../../Button/Button';
+import { InlineField } from '../../Forms/InlineField';
+import { Icon } from '../../Icon/Icon';
+import { Input } from '../../Input/Input';
+import { HorizontalGroup } from '../../Layout/Layout';
 import { getModalStyles } from '../../Modal/getModalStyles';
+import { Portal } from '../../Portal/Portal';
 import { TimeOfDayPicker, POPUP_CLASS_NAME } from '../TimeOfDayPicker';
 import { getBodyStyles } from '../TimeRangePicker/CalendarBody';
 import { isValid } from '../utils';
@@ -227,7 +233,7 @@ const DateTimeInput = React.forwardRef<HTMLInputElement, InputProps>(
           addonAfter={icon}
           value={internalDate.value}
           onBlur={onBlur}
-          data-testid="date-time-input"
+          data-testid={Components.DateTimePicker.input}
           placeholder="Select date/time"
           ref={ref}
         />

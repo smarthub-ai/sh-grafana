@@ -18,6 +18,7 @@ import (
 	"github.com/grafana/grafana/pkg/components/simplejson"
 	"github.com/grafana/grafana/pkg/infra/appcontext"
 	"github.com/grafana/grafana/pkg/infra/db"
+	"github.com/grafana/grafana/pkg/infra/log"
 	"github.com/grafana/grafana/pkg/infra/tracing"
 	"github.com/grafana/grafana/pkg/kinds/librarypanel"
 	"github.com/grafana/grafana/pkg/services/accesscontrol"
@@ -190,8 +191,9 @@ func TestGetLibraryPanelConnections(t *testing.T) {
 }
 
 type libraryElement struct {
-	ID          int64                       `json:"id"`
-	OrgID       int64                       `json:"orgId"`
+	ID    int64 `json:"id"`
+	OrgID int64 `json:"orgId"`
+	// Deprecated: use FolderUID instead
 	FolderID    int64                       `json:"folderId"`
 	UID         string                      `json:"uid"`
 	Name        string                      `json:"name"`
@@ -251,7 +253,7 @@ func getCreateVariableCommand(folderID int64, name string) model.CreateLibraryEl
 
 func getCreateCommandWithModel(folderID int64, name string, kind model.LibraryElementKind, byteModel []byte) model.CreateLibraryElementCommand {
 	command := model.CreateLibraryElementCommand{
-		FolderID: folderID,
+		FolderID: folderID, // nolint:staticcheck
 		Name:     name,
 		Model:    byteModel,
 		Kind:     int64(kind),
@@ -268,6 +270,7 @@ type scenarioContext struct {
 	folder        *folder.Folder
 	initialResult libraryElementResult
 	sqlStore      db.DB
+	log           log.Logger
 }
 
 func createDashboard(t *testing.T, sqlStore db.DB, user user.SignedInUser, dash *dashboards.Dashboard, folderID int64) *dashboards.Dashboard {
@@ -280,11 +283,10 @@ func createDashboard(t *testing.T, sqlStore db.DB, user user.SignedInUser, dash 
 		Overwrite: false,
 	}
 
-	cfg := setting.NewCfg()
 	features := featuremgmt.WithFeatures()
-	cfg.IsFeatureToggleEnabled = features.IsEnabled
+	cfg := setting.NewCfg()
 	quotaService := quotatest.New(false, nil)
-	dashboardStore, err := database.ProvideDashboardStore(sqlStore, cfg, featuremgmt.WithFeatures(), tagimpl.ProvideService(sqlStore, cfg), quotaService)
+	dashboardStore, err := database.ProvideDashboardStore(sqlStore, cfg, features, tagimpl.ProvideService(sqlStore), quotaService)
 	require.NoError(t, err)
 	dashAlertExtractor := alerting.ProvideDashAlertExtractorService(nil, nil, nil)
 	ac := actest.FakeAccessControl{ExpectedEvaluate: true}
@@ -307,12 +309,11 @@ func createDashboard(t *testing.T, sqlStore db.DB, user user.SignedInUser, dash 
 func createFolder(t *testing.T, sc scenarioContext, title string) *folder.Folder {
 	t.Helper()
 
-	cfg := setting.NewCfg()
 	features := featuremgmt.WithFeatures()
-	cfg.IsFeatureToggleEnabled = features.IsEnabled
+	cfg := setting.NewCfg()
 	ac := actest.FakeAccessControl{}
 	quotaService := quotatest.New(false, nil)
-	dashboardStore, err := database.ProvideDashboardStore(sc.sqlStore, cfg, featuremgmt.WithFeatures(), tagimpl.ProvideService(sc.sqlStore, cfg), quotaService)
+	dashboardStore, err := database.ProvideDashboardStore(sc.sqlStore, cfg, features, tagimpl.ProvideService(sc.sqlStore), quotaService)
 	require.NoError(t, err)
 
 	folderStore := folderimpl.ProvideDashboardFolderStore(sc.sqlStore)
@@ -367,12 +368,12 @@ func validateAndUnMarshalArrayResponse(t *testing.T, resp response.Response) lib
 func scenarioWithPanel(t *testing.T, desc string, fn func(t *testing.T, sc scenarioContext)) {
 	t.Helper()
 
+	features := featuremgmt.WithFeatures()
 	sqlStore := db.InitTestDB(t)
 	ac := actest.FakeAccessControl{}
 	quotaService := quotatest.New(false, nil)
-	dashboardStore, err := database.ProvideDashboardStore(sqlStore, sqlStore.Cfg, featuremgmt.WithFeatures(), tagimpl.ProvideService(sqlStore, sqlStore.Cfg), quotaService)
+	dashboardStore, err := database.ProvideDashboardStore(sqlStore, sqlStore.Cfg, features, tagimpl.ProvideService(sqlStore), quotaService)
 	require.NoError(t, err)
-	features := featuremgmt.WithFeatures()
 	folderPermissions := acmock.NewMockedPermissionsService()
 	dashboardPermissions := acmock.NewMockedPermissionsService()
 	folderStore := folderimpl.ProvideDashboardFolderStore(sqlStore)
@@ -389,6 +390,7 @@ func scenarioWithPanel(t *testing.T, desc string, fn func(t *testing.T, sc scena
 		sc.reqContext.Req.Body = mockRequestBody(command)
 		resp := sc.service.createHandler(sc.reqContext)
 		sc.initialResult = validateAndUnMarshalResponse(t, resp)
+		sc.log = log.New("libraryelements-test")
 
 		fn(t, sc)
 	})
@@ -424,11 +426,11 @@ func testScenario(t *testing.T, desc string, fn func(t *testing.T, sc scenarioCo
 		req = req.WithContext(ctx)
 		webCtx := web.Context{Req: req}
 
+		features := featuremgmt.WithFeatures()
 		sqlStore := db.InitTestDB(t)
 		quotaService := quotatest.New(false, nil)
-		dashboardStore, err := database.ProvideDashboardStore(sqlStore, sqlStore.Cfg, featuremgmt.WithFeatures(), tagimpl.ProvideService(sqlStore, sqlStore.Cfg), quotaService)
+		dashboardStore, err := database.ProvideDashboardStore(sqlStore, sqlStore.Cfg, features, tagimpl.ProvideService(sqlStore), quotaService)
 		require.NoError(t, err)
-		features := featuremgmt.WithFeatures()
 		ac := acimpl.ProvideAccessControl(sqlStore.Cfg)
 		folderPermissions := acmock.NewMockedPermissionsService()
 		folderPermissions.On("SetPermissions", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]accesscontrol.ResourcePermission{}, nil)

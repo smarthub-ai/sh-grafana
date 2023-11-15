@@ -13,9 +13,6 @@ import (
 
 	"github.com/grafana/grafana/pkg/plugins"
 	"github.com/grafana/grafana/pkg/plugins/manager/fakes"
-	"github.com/grafana/grafana/pkg/services/featuremgmt"
-	"github.com/grafana/grafana/pkg/services/pluginsintegration/config"
-	"github.com/grafana/grafana/pkg/setting"
 	"github.com/grafana/grafana/pkg/util"
 )
 
@@ -24,10 +21,6 @@ func TestFinder_Find(t *testing.T) {
 	if err != nil {
 		require.NoError(t, err)
 	}
-
-	cfg := setting.NewCfg()
-	pCfg, err := config.ProvideConfig(setting.ProvideProvider(cfg), cfg, featuremgmt.WithFeatures())
-	require.NoError(t, err)
 
 	testCases := []struct {
 		name            string
@@ -255,7 +248,7 @@ func TestFinder_Find(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			f := NewLocalFinder(pCfg.DevMode)
+			f := NewLocalFinder(false)
 			pluginBundles, err := f.Find(context.Background(), &fakes.FakePluginSource{
 				PluginURIsFunc: func(ctx context.Context) []string {
 					return tc.pluginDirs
@@ -279,53 +272,106 @@ func TestFinder_Find(t *testing.T) {
 }
 
 func TestFinder_getAbsPluginJSONPaths(t *testing.T) {
-	cfg := setting.NewCfg()
-	pCfg, err := config.ProvideConfig(setting.ProvideProvider(cfg), cfg, featuremgmt.WithFeatures())
-	require.NoError(t, err)
-
 	t.Run("When scanning a folder that doesn't exists shouldn't return an error", func(t *testing.T) {
 		origWalk := walk
-		walk = func(path string, followSymlinks, detectSymlinkInfiniteLoop bool, walkFn util.WalkFunc) error {
+		walk = func(path string, followSymlinks, detectSymlinkInfiniteLoop, followDistFolder bool, walkFn util.WalkFunc) error {
 			return walkFn(path, nil, os.ErrNotExist)
 		}
 		t.Cleanup(func() {
 			walk = origWalk
 		})
 
-		finder := NewLocalFinder(pCfg.DevMode)
-		paths, err := finder.getAbsPluginJSONPaths("test")
+		finder := NewLocalFinder(false)
+		paths, err := finder.getAbsPluginJSONPaths("test", true)
 		require.NoError(t, err)
 		require.Empty(t, paths)
 	})
 
 	t.Run("When scanning a folder that lacks permission shouldn't return an error", func(t *testing.T) {
 		origWalk := walk
-		walk = func(path string, followSymlinks, detectSymlinkInfiniteLoop bool, walkFn util.WalkFunc) error {
+		walk = func(path string, followSymlinks, detectSymlinkInfiniteLoop, followDistFolder bool, walkFn util.WalkFunc) error {
 			return walkFn(path, nil, os.ErrPermission)
 		}
 		t.Cleanup(func() {
 			walk = origWalk
 		})
 
-		finder := NewLocalFinder(pCfg.DevMode)
-		paths, err := finder.getAbsPluginJSONPaths("test")
+		finder := NewLocalFinder(false)
+		paths, err := finder.getAbsPluginJSONPaths("test", true)
 		require.NoError(t, err)
 		require.Empty(t, paths)
 	})
 
 	t.Run("When scanning a folder that returns a non-handled error should return that error", func(t *testing.T) {
 		origWalk := walk
-		walk = func(path string, followSymlinks, detectSymlinkInfiniteLoop bool, walkFn util.WalkFunc) error {
+		walk = func(path string, followSymlinks, detectSymlinkInfiniteLoop, followDistFolder bool, walkFn util.WalkFunc) error {
 			return walkFn(path, nil, errors.New("random error"))
 		}
 		t.Cleanup(func() {
 			walk = origWalk
 		})
 
-		finder := NewLocalFinder(pCfg.DevMode)
-		paths, err := finder.getAbsPluginJSONPaths("test")
+		finder := NewLocalFinder(false)
+		paths, err := finder.getAbsPluginJSONPaths("test", true)
 		require.Error(t, err)
 		require.Empty(t, paths)
+	})
+
+	t.Run("should forward if the dist folder should be evaluated", func(t *testing.T) {
+		origWalk := walk
+		walk = func(path string, followSymlinks, detectSymlinkInfiniteLoop, followDistFolder bool, walkFn util.WalkFunc) error {
+			if followDistFolder {
+				return walkFn(path, nil, errors.New("unexpected followDistFolder"))
+			}
+			return walkFn(path, nil, filepath.SkipDir)
+		}
+		t.Cleanup(func() {
+			walk = origWalk
+		})
+
+		finder := NewLocalFinder(false)
+		paths, err := finder.getAbsPluginJSONPaths("test", false)
+		require.ErrorIs(t, err, filepath.SkipDir)
+		require.Empty(t, paths)
+	})
+}
+
+func TestFinder_getAbsPluginJSONPaths_PluginClass(t *testing.T) {
+	t.Run("When a dist folder exists as a direct child of the plugins path, it will always be resolved", func(t *testing.T) {
+		dir, err := filepath.Abs("../../testdata/pluginRootWithDist")
+		require.NoError(t, err)
+
+		tcs := []struct {
+			name       string
+			followDist bool
+			expected   []string
+		}{
+			{
+				name:       "When followDistFolder is enabled, a nested dist folder will also be resolved",
+				followDist: true,
+				expected: []string{
+					filepath.Join(dir, "datasource/plugin.json"),
+					filepath.Join(dir, "dist/plugin.json"),
+					filepath.Join(dir, "panel/dist/plugin.json"),
+				},
+			},
+			{
+				name:       "When followDistFolder is disabled, a nested dist folder will not be resolved",
+				followDist: false,
+				expected: []string{
+					filepath.Join(dir, "datasource/plugin.json"),
+					filepath.Join(dir, "dist/plugin.json"),
+					filepath.Join(dir, "panel/src/plugin.json"),
+				},
+			},
+		}
+		for _, tc := range tcs {
+			pluginBundles, err := NewLocalFinder(false).getAbsPluginJSONPaths(dir, tc.followDist)
+			require.NoError(t, err)
+
+			sort.Strings(pluginBundles)
+			require.Equal(t, tc.expected, pluginBundles)
+		}
 	})
 }
 

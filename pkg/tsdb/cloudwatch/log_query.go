@@ -163,7 +163,7 @@ func changeToStringField(lengthOfValues int, rows [][]*cloudwatchlogs.ResultFiel
 	return fieldValuesAsStrings
 }
 
-func groupResults(results *data.Frame, groupingFieldNames []string, removeNonTime bool) ([]*data.Frame, error) {
+func groupResults(results *data.Frame, groupingFieldNames []string, fromSyncQuery bool) ([]*data.Frame, error) {
 	groupingFields := make([]*data.Field, 0)
 	removeFieldIndices := make([]int, 0)
 
@@ -180,7 +180,7 @@ func groupResults(results *data.Frame, groupingFieldNames []string, removeNonTim
 					field = newField
 				}
 				// For expressions and alerts to work properly we need to remove non-time grouping fields
-				if removeNonTime && !field.Type().Time() {
+				if fromSyncQuery && !field.Type().Time() {
 					removeFieldIndices = append(removeFieldIndices, i)
 				}
 
@@ -202,8 +202,22 @@ func groupResults(results *data.Frame, groupingFieldNames []string, removeNonTim
 			newFrame := results.EmptyCopy()
 			newFrame.Name = groupKey
 			newFrame.Meta = results.Meta
-			// remove grouping indices
-			newFrame.Fields = removeFieldsByIndex(newFrame.Fields, removeFieldIndices)
+			if fromSyncQuery {
+				// remove grouping indices
+				newFrame.Fields = removeFieldsByIndex(newFrame.Fields, removeFieldIndices)
+				groupLabels := generateLabels(groupingFields, i)
+
+				// set the group key as the display name for sync queries
+				for j := 1; j < len(newFrame.Fields); j++ {
+					valueField := newFrame.Fields[j]
+					if valueField.Config == nil {
+						valueField.Config = &data.FieldConfig{}
+					}
+					valueField.Config.DisplayNameFromDS = groupKey
+					valueField.Labels = groupLabels
+				}
+			}
+
 			groupedDataFrames[groupKey] = newFrame
 		}
 
@@ -263,8 +277,19 @@ func generateGroupKey(fields []*data.Field, row int) string {
 			}
 		}
 	}
-
 	return groupKey
+}
+
+func generateLabels(fields []*data.Field, row int) data.Labels {
+	labels := data.Labels{}
+	for _, field := range fields {
+		if strField, ok := field.At(row).(*string); ok {
+			if strField != nil {
+				labels[field.Name] = *strField
+			}
+		}
+	}
+	return labels
 }
 
 func numericFieldToStringField(field *data.Field) (*data.Field, error) {

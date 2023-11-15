@@ -1,14 +1,20 @@
 package elasticsearch
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"time"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
+	"github.com/grafana/grafana-plugin-sdk-go/experimental/errorsource"
 
 	"github.com/grafana/grafana/pkg/components/simplejson"
+	"github.com/grafana/grafana/pkg/infra/log"
+	"github.com/grafana/grafana/pkg/infra/tracing"
 	es "github.com/grafana/grafana/pkg/tsdb/elasticsearch/client"
 )
 
@@ -19,19 +25,30 @@ const (
 type elasticsearchDataQuery struct {
 	client      es.Client
 	dataQueries []backend.DataQuery
+	logger      log.Logger
+	ctx         context.Context
+	tracer      tracing.Tracer
 }
 
-var newElasticsearchDataQuery = func(client es.Client, dataQuery []backend.DataQuery) *elasticsearchDataQuery {
+var newElasticsearchDataQuery = func(ctx context.Context, client es.Client, dataQuery []backend.DataQuery, logger log.Logger, tracer tracing.Tracer) *elasticsearchDataQuery {
 	return &elasticsearchDataQuery{
 		client:      client,
 		dataQueries: dataQuery,
+		logger:      logger,
+		ctx:         ctx,
+		tracer:      tracer,
 	}
 }
 
 func (e *elasticsearchDataQuery) execute() (*backend.QueryDataResponse, error) {
-	queries, err := parseQuery(e.dataQueries)
+	start := time.Now()
+	response := backend.NewQueryDataResponse()
+	e.logger.Debug("Parsing queries", "queriesLength", len(e.dataQueries))
+	queries, err := parseQuery(e.dataQueries, e.logger)
 	if err != nil {
-		return &backend.QueryDataResponse{}, err
+		mq, _ := json.Marshal(e.dataQueries)
+		e.logger.Error("Failed to parse queries", "error", err, "queries", string(mq), "queriesLength", len(queries), "duration", time.Since(start), "stage", es.StagePrepareRequest)
+		return errorsource.AddPluginErrorToResponse(e.dataQueries[0].RefID, response, err), nil
 	}
 
 	ms := e.client.MultiSearch()
@@ -40,26 +57,33 @@ func (e *elasticsearchDataQuery) execute() (*backend.QueryDataResponse, error) {
 	to := e.dataQueries[0].TimeRange.To.UnixNano() / int64(time.Millisecond)
 	for _, q := range queries {
 		if err := e.processQuery(q, ms, from, to); err != nil {
-			return &backend.QueryDataResponse{}, err
+			mq, _ := json.Marshal(q)
+			e.logger.Error("Failed to process query to multisearch request builder", "error", err, "query", string(mq), "queriesLength", len(queries), "duration", time.Since(start), "stage", es.StagePrepareRequest)
+			return errorsource.AddPluginErrorToResponse(q.RefID, response, err), nil
 		}
 	}
 
 	req, err := ms.Build()
 	if err != nil {
-		return &backend.QueryDataResponse{}, err
+		mqs, _ := json.Marshal(e.dataQueries)
+		e.logger.Error("Failed to build multisearch request", "error", err, "queriesLength", len(queries), "queries", string(mqs), "duration", time.Since(start), "stage", es.StagePrepareRequest)
+		return errorsource.AddPluginErrorToResponse(e.dataQueries[0].RefID, response, err), nil
 	}
 
+	e.logger.Info("Prepared request", "queriesLength", len(queries), "duration", time.Since(start), "stage", es.StagePrepareRequest)
 	res, err := e.client.ExecuteMultisearch(req)
 	if err != nil {
-		return &backend.QueryDataResponse{}, err
+		// We are returning error containing the source that was added trough errorsource.Middleware
+		return errorsource.AddErrorToResponse(e.dataQueries[0].RefID, response, err), nil
 	}
 
-	return parseResponse(res.Responses, queries, e.client.GetConfiguredFields())
+	return parseResponse(e.ctx, res.Responses, queries, e.client.GetConfiguredFields(), e.logger, e.tracer)
 }
 
 func (e *elasticsearchDataQuery) processQuery(q *Query, ms *es.MultiSearchRequestBuilder, from, to int64) error {
 	err := isQueryWithError(q)
 	if err != nil {
+		err = fmt.Errorf("received invalid query. %w", err)
 		return err
 	}
 
@@ -140,21 +164,26 @@ func addDateHistogramAgg(aggBuilder es.AggBuilder, bucketAgg *BucketAgg, timeFro
 		field = timeField
 	}
 	aggBuilder.DateHistogram(bucketAgg.ID, field, func(a *es.DateHistogramAgg, b es.AggBuilder) {
-		a.FixedInterval = bucketAgg.Settings.Get("interval").MustString("auto")
+		var interval = bucketAgg.Settings.Get("interval").MustString("auto")
+		if slices.Contains(es.GetCalendarIntervals(), interval) {
+			a.CalendarInterval = interval
+		} else {
+			if interval == "auto" {
+				// note this is not really a valid grafana-variable-handling,
+				// because normally this would not match `$__interval_ms`,
+				// but because how we apply these in the go-code, this will work
+				// correctly, and becomes something like `500ms`.
+				// a nicer way would be to use `${__interval_ms}ms`, but
+				// that format is not recognized where we apply these variables
+				// in the elasticsearch datasource
+				a.FixedInterval = "$__interval_msms"
+			} else {
+				a.FixedInterval = interval
+			}
+		}
 		a.MinDocCount = bucketAgg.Settings.Get("min_doc_count").MustInt(0)
 		a.ExtendedBounds = &es.ExtendedBounds{Min: timeFrom, Max: timeTo}
 		a.Format = bucketAgg.Settings.Get("format").MustString(es.DateFormatEpochMS)
-
-		if a.FixedInterval == "auto" {
-			// note this is not really a valid grafana-variable-handling,
-			// because normally this would not match `$__interval_ms`,
-			// but because how we apply these in the go-code, this will work
-			// correctly, and becomes something like `500ms`.
-			// a nicer way would be to use `${__interval_ms}ms`, but
-			// that format is not recognized where we apply these variables
-			// in the elasticsearch datasource
-			a.FixedInterval = "$__interval_msms"
-		}
 
 		if offset, err := bucketAgg.Settings.Get("offset").String(); err == nil {
 			a.Offset = offset
