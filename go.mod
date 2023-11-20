@@ -41,7 +41,7 @@ require (
 	github.com/benbjohnson/clock v1.3.5 // @grafana/alerting-squad-backend
 	github.com/blang/semver/v4 v4.0.0 // @grafana/grafana-delivery
 	github.com/bradfitz/gomemcache v0.0.0-20190913173617-a41fca850d0b // @grafana/backend-platform
-	github.com/centrifugal/centrifuge v0.30.2 // @grafana/grafana-app-platform-squad
+	github.com/centrifugal/centrifuge v0.30.5 // @grafana/grafana-app-platform-squad
 	github.com/crewjam/saml v0.4.13 // @grafana/grafana-authnz-team
 	github.com/fatih/color v1.15.0 // @grafana/backend-platform
 	github.com/gchaincl/sqlhooks v1.3.0 // @grafana/backend-platform
@@ -58,7 +58,7 @@ require (
 	github.com/golang/mock v1.6.0 // @grafana/alerting-squad-backend
 	github.com/golang/snappy v0.0.4 // @grafana/alerting-squad-backend
 	github.com/google/go-cmp v0.6.0 // @grafana/backend-platform
-	github.com/google/uuid v1.3.1 // @grafana/backend-platform
+	github.com/google/uuid v1.4.0 // @grafana/backend-platform
 	github.com/google/wire v0.5.0 // @grafana/backend-platform
 	github.com/gorilla/websocket v1.5.0 // @grafana/grafana-app-platform-squad
 	github.com/grafana/alerting v0.0.0-20231101090315-bf12694896a8 // @grafana/alerting-squad-backend
@@ -307,7 +307,7 @@ require (
 	github.com/bmatcuk/doublestar v1.1.1 // indirect
 	github.com/buildkite/yaml v2.1.0+incompatible // indirect
 	github.com/bwmarrin/snowflake v0.3.0 // @grafan/grafana-app-platform-squad
-	github.com/centrifugal/protocol v0.10.0 // indirect
+	github.com/centrifugal/protocol v0.11.0 // indirect
 	github.com/cloudflare/circl v1.3.3 // indirect
 	github.com/cockroachdb/errors v1.9.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20211118104740-dabe8e521a4f // indirect
@@ -375,7 +375,7 @@ require (
 	github.com/pborman/uuid v1.2.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
-	github.com/redis/rueidis v1.0.16 // indirect
+	github.com/redis/rueidis v1.0.21 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.3.4 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
