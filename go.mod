@@ -263,7 +263,7 @@ require (
 	github.com/grafana/kindsys v0.0.0-20230508162304-452481b63482 //  @grafana/grafana-as-code
 	github.com/grafana/tempo v1.5.1-0.20230524121406-1dc1bfe7085b // @grafana/observability-traces-and-profiling
 	github.com/grafana/thema v0.0.0-20230712153715-375c1b45f3ed // @grafana/grafana-as-code
-	github.com/microsoft/go-mssqldb v1.5.0 // @grafana/grafana-bi-squad
+	github.com/microsoft/go-mssqldb v1.6.0 // @grafana/grafana-bi-squad
 	github.com/ory/fosite v0.44.1-0.20230317114349-45a6785cc54f // @grafana/grafana-authnz-team
 	github.com/redis/go-redis/v9 v9.0.2 // @grafana/alerting-squad-backend
 	github.com/weaveworks/common v0.0.0-20230511094633-334485600903 // @grafana/alerting-squad-backend
@@ -432,9 +432,9 @@ require (
 	cloud.google.com/go/compute v1.23.0 // indirect
 	cloud.google.com/go/iam v1.1.2 // indirect
 	filippo.io/age v1.1.1 // @grafana/grafana-authnz-team
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.6.1 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.7.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/internal v0.7.0 // indirect
-	github.com/AzureAD/microsoft-authentication-library-for-go v1.0.0 // indirect
+	github.com/AzureAD/microsoft-authentication-library-for-go v1.1.0 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.2 // @grafana/backend-platform
 	github.com/Microsoft/go-winio v0.6.0 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230828082145-3c4c8a2d2371 // @grafana/plugins-platform-backend
@@ -482,7 +482,10 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
 
-require github.com/google/gnostic-models v0.6.8 // indirect
+require (
+	github.com/golang-jwt/jwt/v5 v5.0.0 // indirect
+	github.com/google/gnostic-models v0.6.8 // indirect
+)
 
 // Use fork of crewjam/saml with fixes for some issues until changes get merged into upstream
 replace github.com/crewjam/saml => github.com/grafana/saml v0.4.15-0.20231025143828-a6c0e9b86a4c
