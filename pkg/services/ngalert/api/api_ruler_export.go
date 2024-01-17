@@ -7,14 +7,15 @@ import (
 
 	"github.com/grafana/grafana/pkg/api/response"
 	contextmodel "github.com/grafana/grafana/pkg/services/contexthandler/model"
+	"github.com/grafana/grafana/pkg/services/ngalert/accesscontrol"
 	apimodels "github.com/grafana/grafana/pkg/services/ngalert/api/tooling/definitions"
 	ngmodels "github.com/grafana/grafana/pkg/services/ngalert/models"
 )
 
 // ExportFromPayload converts the rule groups from the argument `ruleGroupConfig` to export format. All rules are expected to be fully specified. The access to data sources mentioned in the rules is not enforced.
-// Can return 403 StatusForbidden if user is not authorized to read folder `namespaceTitle`
-func (srv RulerSrv) ExportFromPayload(c *contextmodel.ReqContext, ruleGroupConfig apimodels.PostableRuleGroupConfig, namespaceTitle string) response.Response {
-	namespace, err := srv.store.GetNamespaceByTitle(c.Req.Context(), namespaceTitle, c.SignedInUser.GetOrgID(), c.SignedInUser)
+// Can return 403 StatusForbidden if user is not authorized to read folder `namespaceUID`
+func (srv RulerSrv) ExportFromPayload(c *contextmodel.ReqContext, ruleGroupConfig apimodels.PostableRuleGroupConfig, namespaceUID string) response.Response {
+	namespace, err := srv.store.GetNamespaceByUID(c.Req.Context(), namespaceUID, c.SignedInUser.GetOrgID(), c.SignedInUser)
 	if err != nil {
 		return toNamespaceErrorResponse(err)
 	}
@@ -147,7 +148,7 @@ func (srv RulerSrv) getRulesWithFolderTitleInFolders(c *contextmodel.ReqContext,
 			}
 		}
 		if len(query.NamespaceUIDs) == 0 {
-			return nil, fmt.Errorf("%w access rules in the specified folders", ErrAuthorization)
+			return nil, accesscontrol.NewAuthorizationErrorGeneric("access rules in the specified folders")
 		}
 	} else {
 		for _, folder := range folders {
