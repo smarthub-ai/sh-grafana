@@ -28,7 +28,7 @@ replace github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.
 replace github.com/getkin/kin-openapi => github.com/getkin/kin-openapi v0.120.0
 
 require (
-	cloud.google.com/go/storage v1.30.1 // @grafana/backend-platform
+	cloud.google.com/go/storage v1.36.0 // @grafana/backend-platform
 	cuelang.org/go v0.6.0-0.dev // @grafana/grafana-as-code
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible // @grafana/partner-datasources
 	github.com/Azure/go-autorest/autorest v0.11.29 // @grafana/backend-platform
@@ -113,7 +113,7 @@ require (
 	golang.org/x/time v0.5.0 // @grafana/backend-platform
 	golang.org/x/tools v0.16.0 // @grafana/grafana-as-code
 	gonum.org/v1/gonum v0.12.0 // @grafana/observability-metrics
-	google.golang.org/api v0.149.0 // @grafana/backend-platform
+	google.golang.org/api v0.150.0 // @grafana/backend-platform
 	google.golang.org/grpc v1.60.1 // @grafana/plugins-platform-backend
 	google.golang.org/protobuf v1.32.0 // @grafana/plugins-platform-backend
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
