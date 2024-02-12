@@ -2,8 +2,7 @@ import React from 'react';
 
 import { LinkTarget } from '@grafana/data';
 import { config } from '@grafana/runtime';
-import { Icon, IconName } from '@grafana/ui';
-import { t } from 'app/core/internationalization';
+import { IconName } from '@grafana/ui';
 
 export interface FooterLink {
   target: LinkTarget;
@@ -13,31 +12,7 @@ export interface FooterLink {
   url?: string;
 }
 
-export let getFooterLinks = (): FooterLink[] => {
-  return [
-    {
-      target: '_blank',
-      id: 'documentation',
-      text: t('nav.help/documentation', 'Documentation'),
-      icon: 'document-info',
-      url: 'https://grafana.com/docs/grafana/latest/?utm_source=grafana_footer',
-    },
-    {
-      target: '_blank',
-      id: 'support',
-      text: t('nav.help/support', 'Support'),
-      icon: 'question-circle',
-      url: 'https://grafana.com/products/enterprise/?utm_source=grafana_footer',
-    },
-    {
-      target: '_blank',
-      id: 'community',
-      text: t('nav.help/community', 'Community'),
-      icon: 'comments-alt',
-      url: 'https://community.grafana.com/?utm_source=grafana_footer',
-    },
-  ];
-};
+export let getFooterLinks = (): FooterLink[] => [];
 
 export function getVersionMeta(version: string) {
   const isBeta = version.includes('-beta');
@@ -95,38 +70,6 @@ export interface Props {
   customLinks?: FooterLink[] | null;
 }
 
-export const Footer = React.memo(({ customLinks }: Props) => {
-  const links = (customLinks || getFooterLinks()).concat(getVersionLinks());
-
-  return (
-    <footer className="footer">
-      <div className="text-center">
-        <ul>
-          {links.map((link) => (
-            <li key={link.text}>
-              <FooterItem item={link} />
-            </li>
-          ))}
-        </ul>
-      </div>
-    </footer>
-  );
-});
+export const Footer = React.memo(() => <footer className="footer"></footer>);
 
 Footer.displayName = 'Footer';
-
-function FooterItem({ item }: { item: FooterLink }) {
-  const content = item.url ? (
-    <a href={item.url} target={item.target} rel="noopener noreferrer" id={item.id}>
-      {item.text}
-    </a>
-  ) : (
-    item.text
-  );
-
-  return (
-    <>
-      {item.icon && <Icon name={item.icon} />} {content}
-    </>
-  );
-}
