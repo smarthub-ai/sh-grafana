@@ -219,7 +219,7 @@ const EmptyRecentList = memo(() => {
 
   return (
     <div className={styles.container}>
-      <Trans i18nKey="time-picker.content.empty-recent-list">
+      {/* <Trans i18nKey="time-picker.content.empty-recent-list">
         <div>
           <span>
             It looks like you haven&apos;t used this time picker before. As soon as you enter some time intervals,
@@ -236,7 +236,7 @@ const EmptyRecentList = memo(() => {
           </a>
           <span> to find out more about how to enter custom time ranges.</span>
         </div>
-      </Trans>
+      </Trans> */}
     </div>
   );
 });
