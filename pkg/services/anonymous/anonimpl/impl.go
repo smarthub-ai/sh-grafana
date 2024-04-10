@@ -88,7 +88,7 @@ func (a *AnonDeviceService) tagDeviceUI(ctx context.Context, httpReq *http.Reque
 
 	a.localCache.SetDefault(key, struct{}{})
 
-	if setting.Env == setting.Dev {
+	if a.cfg.Env == setting.Dev {
 		a.log.Debug("Tagging device for UI", "deviceID", device.DeviceID, "device", device, "key", key)
 	}
 
@@ -112,7 +112,7 @@ func (a *AnonDeviceService) untagDevice(ctx context.Context,
 
 	errD := a.anonStore.DeleteDevice(ctx, deviceID)
 	if errD != nil {
-		a.log.Debug("Failed to untag device", "error", err)
+		a.log.Debug("Failed to untag device", "error", errD)
 	}
 }
 

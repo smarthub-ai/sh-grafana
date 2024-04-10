@@ -20,10 +20,11 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
-	"github.com/grafana/grafana/pkg/infra/log"
+
+	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana/pkg/infra/tracing"
+	"github.com/grafana/grafana/pkg/promlib/converter"
 	"github.com/grafana/grafana/pkg/tsdb/loki/instrumentation"
-	"github.com/grafana/grafana/pkg/util/converter"
 )
 
 type LokiAPI struct {
@@ -98,7 +99,7 @@ func makeDataRequest(ctx context.Context, lokiDsUrl string, query lokiQuery, cat
 	}
 
 	if query.SupportingQueryType != SupportingQueryNone {
-		value := getSupportingQueryHeaderValue(req, query.SupportingQueryType)
+		value := getSupportingQueryHeaderValue(query.SupportingQueryType)
 		if value != "" {
 			req.Header.Set("X-Query-Tags", "Source="+value)
 		}
@@ -205,7 +206,7 @@ func (api *LokiAPI) DataQuery(ctx context.Context, query lokiQuery, responseOpts
 			Error:       err,
 			ErrorSource: backend.ErrorSourceFromHTTPStatus(resp.StatusCode),
 		}
-		lp = append(lp, "status", "error", "error", err)
+		lp = append(lp, "status", "error", "error", err, "statusSource", res.ErrorSource)
 		api.log.Error("Error received from Loki", lp...)
 		return &res, nil
 	} else {
@@ -323,8 +324,13 @@ func (api *LokiAPI) RawQuery(ctx context.Context, resourcePath string) (RawLokiR
 	return rawLokiResponse, nil
 }
 
-func getSupportingQueryHeaderValue(req *http.Request, supportingQueryType SupportingQueryType) string {
+func getSupportingQueryHeaderValue(supportingQueryType SupportingQueryType) string {
 	value := ""
+
+	// we need to map the SupportingQueryType to the actual header value. For
+	// legacy reasons we defined each value, such as "logsVolume" maps to the
+	// "logvolhist" header value to Loki. With #85123, even the value set in the
+	// frontend query can be passed as is to Loki.
 	switch supportingQueryType {
 	case SupportingQueryLogsVolume:
 		value = "logvolhist"
@@ -332,7 +338,10 @@ func getSupportingQueryHeaderValue(req *http.Request, supportingQueryType Suppor
 		value = "logsample"
 	case SupportingQueryDataSample:
 		value = "datasample"
-	default: //ignore
+	case SupportingQueryInfiniteScroll:
+		value = "infinitescroll"
+	default:
+		value = string(supportingQueryType)
 	}
 
 	return value

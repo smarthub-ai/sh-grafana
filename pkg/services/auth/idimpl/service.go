@@ -24,8 +24,8 @@ import (
 
 const (
 	cachePrefix = "id-token"
-	tokenTTL    = 1 * time.Hour
-	cacheTTL    = 58 * time.Minute
+	tokenTTL    = 10 * time.Minute
+	cacheLeeway = 30 * time.Second
 )
 
 var _ auth.IDService = (*Service)(nil)
@@ -90,7 +90,7 @@ func (s *Service) SignIdentity(ctx context.Context, id identity.Requester) (stri
 		}
 
 		if identity.IsNamespace(namespace, identity.NamespaceUser) {
-			if err := s.setUserClaims(ctx, identifier, claims); err != nil {
+			if err := s.setUserClaims(ctx, id, identifier, claims); err != nil {
 				return "", err
 			}
 		}
@@ -101,7 +101,22 @@ func (s *Service) SignIdentity(ctx context.Context, id identity.Requester) (stri
 			return "", err
 		}
 
-		if err := s.cache.Set(ctx, cacheKey, []byte(token), cacheTTL); err != nil {
+		parsed, err := jwt.ParseSigned(token)
+		if err != nil {
+			s.metrics.failedTokenSigningCounter.Inc()
+			return "", err
+		}
+
+		extracted := auth.IDClaims{}
+		// We don't need to verify the signature here, we are only intrested in checking
+		// when the token expires.
+		if err := parsed.UnsafeClaimsWithoutVerification(&extracted); err != nil {
+			s.metrics.failedTokenSigningCounter.Inc()
+			return "", err
+		}
+
+		expires := time.Until(extracted.Expiry.Time())
+		if err := s.cache.Set(ctx, cacheKey, []byte(token), expires-cacheLeeway); err != nil {
 			s.logger.FromContext(ctx).Error("Failed to add id token to cache", "error", err)
 		}
 
@@ -115,7 +130,11 @@ func (s *Service) SignIdentity(ctx context.Context, id identity.Requester) (stri
 	return result.(string), nil
 }
 
-func (s *Service) setUserClaims(ctx context.Context, identifier string, claims *auth.IDClaims) error {
+func (s *Service) RemoveIDToken(ctx context.Context, id identity.Requester) error {
+	return s.cache.Delete(ctx, prefixCacheKey(id.GetCacheKey()))
+}
+
+func (s *Service) setUserClaims(ctx context.Context, ident identity.Requester, identifier string, claims *auth.IDClaims) error {
 	id, err := strconv.ParseInt(identifier, 10, 64)
 	if err != nil {
 		return err
@@ -124,6 +143,9 @@ func (s *Service) setUserClaims(ctx context.Context, identifier string, claims *
 	if id == 0 {
 		return nil
 	}
+
+	claims.Email = ident.GetEmail()
+	claims.EmailVerified = ident.IsEmailVerified()
 
 	info, err := s.authInfoService.GetAuthInfo(ctx, &login.GetAuthInfoQuery{UserId: id})
 	if err != nil {
@@ -144,8 +166,10 @@ func (s *Service) hook(ctx context.Context, identity *authn.Identity, _ *authn.R
 	// FIXME(kalleep): we should probably lazy load this
 	token, err := s.SignIdentity(ctx, identity)
 	if err != nil {
-		namespace, id := identity.GetNamespacedID()
-		s.logger.FromContext(ctx).Error("Failed to sign id token", "err", err, "namespace", namespace, "id", id)
+		if shouldLogErr(err) {
+			namespace, id := identity.GetNamespacedID()
+			s.logger.FromContext(ctx).Error("Failed to sign id token", "err", err, "namespace", namespace, "id", id)
+		}
 		// for now don't return error so we don't break authentication from this hook
 		return nil
 	}
@@ -164,4 +188,8 @@ func getSubject(namespace, identifier string) string {
 
 func prefixCacheKey(key string) string {
 	return fmt.Sprintf("%s-%s", cachePrefix, key)
+}
+
+func shouldLogErr(err error) bool {
+	return !errors.Is(err, context.Canceled)
 }
