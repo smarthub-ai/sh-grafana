@@ -209,7 +209,7 @@ require (
 
 require (
 	cloud.google.com/go/kms v1.15.5 // @grafana/backend-platform
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.5.1 // @grafana/backend-platform
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.5.2 // @grafana/backend-platform
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.9.0 // @grafana/backend-platform
 	github.com/Azure/azure-storage-blob-go v0.15.0 // @grafana/backend-platform
 	github.com/Azure/go-autorest/autorest/adal v0.9.23 // @grafana/backend-platform
@@ -385,9 +385,9 @@ require (
 	cloud.google.com/go/compute v1.23.3 // indirect
 	cloud.google.com/go/iam v1.1.5 // indirect
 	filippo.io/age v1.1.1 // @grafana/identity-access-team
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.10.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.11.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/internal v0.7.0 // indirect
-	github.com/AzureAD/microsoft-authentication-library-for-go v1.2.1 // indirect
+	github.com/AzureAD/microsoft-authentication-library-for-go v1.2.2 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.2 // @grafana/backend-platform
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230828082145-3c4c8a2d2371 // @grafana/plugins-platform-backend
