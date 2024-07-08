@@ -5,20 +5,21 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/grafana/grafana/pkg/models/roletype"
-	"github.com/grafana/grafana/pkg/services/auth/identity"
+	"github.com/grafana/grafana/pkg/apimachinery/identity"
 )
 
 const (
 	GlobalOrgID = int64(0)
 )
 
+var _ identity.Requester = &SignedInUser{}
+
 type SignedInUser struct {
 	UserID        int64  `xorm:"user_id"`
 	UserUID       string `xorm:"user_uid"`
 	OrgID         int64  `xorm:"org_id"`
 	OrgName       string
-	OrgRole       roletype.RoleType
+	OrgRole       identity.RoleType
 	Login         string
 	Name          string
 	Email         string
@@ -57,7 +58,7 @@ func (u *SignedInUser) NameOrFallback() string {
 	return u.Email
 }
 
-func (u *SignedInUser) HasRole(role roletype.RoleType) bool {
+func (u *SignedInUser) HasRole(role identity.RoleType) bool {
 	if u.IsGrafanaAdmin {
 		return true
 	}
@@ -97,7 +98,7 @@ func (u *SignedInUser) GetCacheKey() string {
 		// e.g. anonymous and render key.
 		orgRole := u.GetOrgRole()
 		if orgRole == "" {
-			orgRole = roletype.RoleNone
+			orgRole = identity.RoleNone
 		}
 
 		id = string(orgRole)
@@ -161,7 +162,7 @@ func (u *SignedInUser) GetTeams() []int64 {
 }
 
 // GetOrgRole returns the role of the active entity in the active organization
-func (u *SignedInUser) GetOrgRole() roletype.RoleType {
+func (u *SignedInUser) GetOrgRole() identity.RoleType {
 	return u.OrgRole
 }
 
@@ -172,7 +173,7 @@ func (u *SignedInUser) GetID() identity.NamespaceID {
 }
 
 // GetNamespacedID returns the namespace and ID of the active entity
-// The namespace is one of the constants defined in pkg/services/auth/identity
+// The namespace is one of the constants defined in pkg/apimachinery/identity
 func (u *SignedInUser) GetNamespacedID() (identity.Namespace, string) {
 	switch {
 	case u.ApiKeyID != 0:
@@ -192,27 +193,20 @@ func (u *SignedInUser) GetNamespacedID() (identity.Namespace, string) {
 
 // GetUID returns namespaced uid for the entity
 func (u *SignedInUser) GetUID() identity.NamespaceID {
-	ns, uid := u.GetNamespacedUID()
-	return identity.NewNamespaceIDString(ns, uid)
-}
-
-// GetNamespacedUID returns the namespace and UID of the active entity
-// The namespace is one of the constants defined in pkg/services/auth/identity
-func (u *SignedInUser) GetNamespacedUID() (identity.Namespace, string) {
 	switch {
 	case u.ApiKeyID != 0:
-		return identity.NamespaceAPIKey, fmt.Sprint(u.ApiKeyID)
+		return identity.NewNamespaceIDString(identity.NamespaceAPIKey, strconv.FormatInt(u.ApiKeyID, 10))
 	case u.IsServiceAccount:
-		return identity.NamespaceServiceAccount, u.UserUID
+		return identity.NewNamespaceIDString(identity.NamespaceServiceAccount, u.UserUID)
 	case u.UserID > 0:
-		return identity.NamespaceUser, u.UserUID
+		return identity.NewNamespaceIDString(identity.NamespaceUser, u.UserUID)
 	case u.IsAnonymous:
-		return identity.NamespaceAnonymous, ""
+		return identity.NewNamespaceIDString(identity.NamespaceAnonymous, "0")
 	case u.AuthenticatedBy == "render" && u.UserID == 0:
-		return identity.NamespaceRenderService, ""
+		return identity.NewNamespaceIDString(identity.NamespaceRenderService, "0")
 	}
 
-	return identity.NamespaceEmpty, ""
+	return identity.NewNamespaceIDString(identity.NamespaceEmpty, "0")
 }
 
 func (u *SignedInUser) GetAuthID() string {

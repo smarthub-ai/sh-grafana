@@ -10,7 +10,8 @@ import {
   useFloating,
   useInteractions,
 } from '@floating-ui/react';
-import React, { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import * as React from 'react';
 import { CSSTransition } from 'react-transition-group';
 
 import { GrafanaTheme2 } from '@grafana/data';
@@ -73,12 +74,12 @@ export const Dropdown = React.memo(({ children, overlay, placement, offset, onVi
   const animationStyles = useStyles2(getStyles, animationDuration);
 
   const onOverlayClicked = () => {
-    setShow(false);
+    handleOpenChange(false);
   };
 
   const handleKeys = (event: React.KeyboardEvent) => {
     if (event.key === 'Tab') {
-      setShow(false);
+      handleOpenChange(false);
     }
   };
 

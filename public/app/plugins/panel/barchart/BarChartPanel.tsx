@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { PanelProps, VizOrientation } from '@grafana/data';
 import { PanelDataErrorView } from '@grafana/runtime';
@@ -82,21 +82,23 @@ export const BarChartPanel = (props: PanelProps<Options>) => {
   );
 
   const vizSeries = useMemo(
-    () => [
-      {
-        ...info.series![0],
-        fields: info.series![0].fields.filter((field, i) => i === 0 || !field.state?.hideFrom?.viz),
-      },
-    ],
+    () =>
+      info.series.map((frame) => ({
+        ...frame,
+        fields: frame.fields.filter((field, i) => i === 0 || !field.state?.hideFrom?.viz),
+      })),
     [info.series]
   );
 
-  const xGroupsCount = vizSeries[0].length;
-  const seriesCount = vizSeries[0].fields?.length;
+  const xGroupsCount = vizSeries[0]?.length ?? 0;
+  const seriesCount = vizSeries[0]?.fields.length ?? 0;
+  const totalSeries = Math.max(0, (info.series[0]?.fields.length ?? 0) - 1);
 
   let { builder, prepData } = useMemo(
     () => {
-      return prepConfig({ series: vizSeries, color: info.color, orientation, options, timeZone, theme });
+      return xGroupsCount === 0
+        ? { builder: null, prepData: null }
+        : prepConfig({ series: vizSeries, totalSeries, color: info.color, orientation, options, timeZone, theme });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -104,6 +106,7 @@ export const BarChartPanel = (props: PanelProps<Options>) => {
       timeZone,
       props.data.structureRev,
 
+      totalSeries,
       seriesCount,
       xGroupsCount,
 
@@ -125,15 +128,18 @@ export const BarChartPanel = (props: PanelProps<Options>) => {
     ]
   );
 
-  const plotData = useMemo(() => prepData(vizSeries, info.color), [prepData, vizSeries, info.color]);
+  const plotData = useMemo(
+    () => (prepData == null ? [] : prepData(vizSeries, info.color)),
+    [prepData, vizSeries, info.color]
+  );
 
-  if (info.warn != null) {
+  if (info.warn != null || builder == null) {
     return (
       <PanelDataErrorView
         panelId={id}
         fieldConfig={fieldConfig}
         data={data}
-        message={info.warn}
+        message={info.warn ?? ''}
         needsNumberField={true}
       />
     );
