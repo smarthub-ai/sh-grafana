@@ -1,8 +1,8 @@
 package receiver
 
 import (
+	"encoding/json"
 	"fmt"
-	"hash/fnv"
 
 	"github.com/prometheus/alertmanager/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,12 +12,11 @@ import (
 	"github.com/grafana/grafana/pkg/services/apiserver/endpoints/request"
 	"github.com/grafana/grafana/pkg/services/ngalert/api/tooling/definitions"
 	"github.com/grafana/grafana/pkg/services/ngalert/models"
+	"github.com/grafana/grafana/pkg/services/ngalert/notifier/legacy_storage"
 )
 
 func getUID(t definitions.GettableApiReceiver) string {
-	sum := fnv.New64()
-	_, _ = sum.Write([]byte(t.Name))
-	return fmt.Sprintf("%016x", sum.Sum64())
+	return legacy_storage.NameToUid(t.Name)
 }
 
 func convertToK8sResources(orgID int64, receivers []definitions.GettableApiReceiver, namespacer request.NamespaceMapper) (*model.ReceiverList, error) {
@@ -48,25 +47,24 @@ func convertToK8sResource(orgID int64, receiver definitions.GettableApiReceiver,
 			Uid:                   &integration.UID,
 			Type:                  integration.Type,
 			DisableResolveMessage: &integration.DisableResolveMessage,
-			Settings:              integration.Settings,
+			Settings:              json.RawMessage(integration.Settings),
 			SecureFields:          integration.SecureFields,
 		})
 	}
 
 	uid := getUID(receiver) // TODO replace to stable UID when we switch to normal storage
-	return &model.Receiver{
+	r := &model.Receiver{
 		TypeMeta: resourceInfo.TypeMeta(),
 		ObjectMeta: metav1.ObjectMeta{
-			UID:       types.UID(uid), // This is needed to make PATCH work
-			Name:      uid,            // TODO replace to stable UID when we switch to normal storage
-			Namespace: namespacer(orgID),
-			Annotations: map[string]string{ // TODO find a better place for provenance?
-				"grafana.com/provenance": string(provenance),
-			},
+			UID:             types.UID(uid), // This is needed to make PATCH work
+			Name:            uid,            // TODO replace to stable UID when we switch to normal storage
+			Namespace:       namespacer(orgID),
 			ResourceVersion: "", // TODO: Implement optimistic concurrency.
 		},
 		Spec: spec,
-	}, nil
+	}
+	r.SetProvenanceStatus(string(provenance))
+	return r, nil
 }
 
 func convertToDomainModel(receiver *model.Receiver) (definitions.GettableApiReceiver, error) {
@@ -84,7 +82,7 @@ func convertToDomainModel(receiver *model.Receiver) (definitions.GettableApiRece
 		grafanaIntegration := definitions.GettableGrafanaReceiver{
 			Name:         receiver.Spec.Title,
 			Type:         integration.Type,
-			Settings:     integration.Settings,
+			Settings:     definitions.RawMessage(integration.Settings),
 			SecureFields: integration.SecureFields,
 			//Provenance:   "", //TODO: Convert provenance?
 		}
