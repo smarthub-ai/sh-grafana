@@ -27,13 +27,14 @@ import {
 } from '@grafana/scenes';
 import { Dashboard, DashboardLink, LibraryPanel } from '@grafana/schema';
 import appEvents from 'app/core/app_events';
+import { ScrollRefElement } from 'app/core/components/NativeScrollbar';
 import { LS_PANEL_COPY_KEY } from 'app/core/constants';
 import { getNavModel } from 'app/core/selectors/navModel';
 import store from 'app/core/store';
 import { getDashboardSrv } from 'app/features/dashboard/services/DashboardSrv';
 import { DashboardModel, PanelModel } from 'app/features/dashboard/state';
 import { dashboardWatcher } from 'app/features/live/dashboard/dashboardWatcher';
-import { deleteDashboard } from 'app/features/manage-dashboards/state/actions';
+import { getClosestScopesFacade, ScopesFacade } from 'app/features/scopes';
 import { VariablesChanged } from 'app/features/variables/types';
 import { DashboardDTO, DashboardMeta, KioskMode, SaveDashboardResponseDTO } from 'app/types';
 import { ShowConfirmModalEvent } from 'app/types/events';
@@ -41,17 +42,13 @@ import { ShowConfirmModalEvent } from 'app/types/events';
 import { PanelEditor } from '../panel-edit/PanelEditor';
 import { DashboardSceneChangeTracker } from '../saving/DashboardSceneChangeTracker';
 import { SaveDashboardDrawer } from '../saving/SaveDashboardDrawer';
-import {
-  buildGridItemForLibPanel,
-  buildGridItemForPanel,
-  transformSaveModelToScene,
-} from '../serialization/transformSaveModelToScene';
+import { buildGridItemForPanel, transformSaveModelToScene } from '../serialization/transformSaveModelToScene';
 import { gridItemToPanel } from '../serialization/transformSceneToSaveModel';
 import { DecoratedRevisionModel } from '../settings/VersionsEditView';
 import { DashboardEditView } from '../settings/utils';
 import { historySrv } from '../settings/version-history';
 import { DashboardModelCompatibilityWrapper } from '../utils/DashboardModelCompatibilityWrapper';
-import { dashboardSceneGraph, getLibraryVizPanelFromVizPanel } from '../utils/dashboardSceneGraph';
+import { dashboardSceneGraph } from '../utils/dashboardSceneGraph';
 import { djb2Hash } from '../utils/djb2Hash';
 import { getDashboardUrl, getViewPanelUrl } from '../utils/urlBuilders';
 import {
@@ -72,9 +69,8 @@ import { DashboardControls } from './DashboardControls';
 import { DashboardGridItem } from './DashboardGridItem';
 import { DashboardSceneRenderer } from './DashboardSceneRenderer';
 import { DashboardSceneUrlSync } from './DashboardSceneUrlSync';
-import { LibraryVizPanel } from './LibraryVizPanel';
+import { LibraryPanelBehavior } from './LibraryPanelBehavior';
 import { RowRepeaterBehavior } from './RowRepeaterBehavior';
-import { ScopesScene } from './Scopes/ScopesScene';
 import { ViewPanelScene } from './ViewPanelScene';
 import { setupKeyboardShortcuts } from './keyboardShortcuts';
 
@@ -123,10 +119,10 @@ export interface DashboardSceneState extends SceneObjectState {
   overlay?: SceneObject;
   /** The dashboard doesn't have panels */
   isEmpty?: boolean;
-  /** Scene object that handles the scopes selector */
-  scopes?: ScopesScene;
   /** Kiosk mode */
   kioskMode?: KioskMode;
+  /** Share view */
+  shareView?: string;
 }
 
 export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
@@ -163,6 +159,16 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
    */
   private _fromExplore = false;
 
+  /**
+   * A reference to the scopes facade
+   */
+  private _scopesFacade: ScopesFacade | null;
+  /**
+   * Remember scroll position when going into panel edit
+   */
+  private _scrollRef?: ScrollRefElement;
+  private _prevScrollPos?: number;
+
   public constructor(state: Partial<DashboardSceneState>) {
     super({
       title: 'Dashboard',
@@ -170,9 +176,10 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
       editable: true,
       body: state.body ?? new SceneFlexLayout({ children: [] }),
       links: state.links ?? [],
-      scopes: state.uid && config.featureToggles.scopeFilters ? new ScopesScene() : undefined,
       ...state,
     });
+
+    this._scopesFacade = getClosestScopesFacade(this);
 
     this._changeTracker = new DashboardSceneChangeTracker(this);
 
@@ -229,6 +236,9 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
     // Propagate change edit mode change to children
     this.propagateEditModeChange();
 
+    // Propagate edit mode to scopes
+    this._scopesFacade?.enterReadOnly();
+
     this._changeTracker.startTrackingChanges();
   };
 
@@ -274,6 +284,7 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
 
     if (!this.state.isDirty || skipConfirm) {
       this.exitEditModeConfirmed(restoreInitialState || this.state.isDirty);
+      this._scopesFacade?.exitReadOnly();
       return;
     }
 
@@ -283,7 +294,10 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
         text: `You have unsaved changes to this dashboard. Are you sure you want to discard them?`,
         icon: 'trash-alt',
         yesText: 'Discard',
-        onConfirm: this.exitEditModeConfirmed.bind(this),
+        onConfirm: () => {
+          this.exitEditModeConfirmed();
+          this._scopesFacade?.exitReadOnly();
+        },
       })
     );
   }
@@ -301,6 +315,7 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
         editview: null,
         inspect: null,
         inspectTab: null,
+        shareView: null,
       })
     );
 
@@ -401,7 +416,7 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
         uid: this.state.uid,
         slug: meta.slug,
         currentQueryParams: location.search,
-        updateQuery: { viewPanel: null, inspect: null, editview: null, editPanel: null, tab: null },
+        updateQuery: { viewPanel: null, inspect: null, editview: null, editPanel: null, tab: null, shareView: null },
         isHomeDashboard: !meta.url && !meta.slug && !meta.isNew,
       }),
     };
@@ -522,13 +537,8 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
       throw new Error('Trying to add a panel in a layout that is not SceneGridLayout');
     }
 
-    const panelKey = panelToReplace.state.key;
-
-    const body = new LibraryVizPanel({
-      title: libPanel.model?.title ?? 'Panel',
-      uid: libPanel.uid,
-      name: libPanel.name,
-      panelKey: panelKey ?? getVizPanelKeyForPanelId(dashboardSceneGraph.getNextPanelId(this)),
+    const body = panelToReplace.clone({
+      $behaviors: [new LibraryPanelBehavior({ uid: libPanel.uid, name: libPanel.name })],
     });
 
     const gridItem = panelToReplace.parent;
@@ -545,9 +555,7 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
       return;
     }
 
-    const libraryPanel = getLibraryVizPanelFromVizPanel(vizPanel);
-
-    const gridItem = libraryPanel ? libraryPanel.parent : vizPanel.parent;
+    const gridItem = vizPanel.parent;
 
     if (!(gridItem instanceof DashboardGridItem)) {
       console.error('Trying to duplicate a panel in a layout that is not DashboardGridItem');
@@ -559,41 +567,27 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
     let newGridItem;
     const newPanelId = dashboardSceneGraph.getNextPanelId(this);
 
-    if (libraryPanel) {
-      const gridItemToDuplicateState = sceneUtils.cloneSceneObjectState(gridItem.state);
-
-      newGridItem = new DashboardGridItem({
-        x: gridItemToDuplicateState.x,
-        y: gridItemToDuplicateState.y,
-        width: gridItemToDuplicateState.width,
-        height: gridItemToDuplicateState.height,
-        body: new LibraryVizPanel({
-          title: libraryPanel.state.title,
-          uid: libraryPanel.state.uid,
-          name: libraryPanel.state.name,
-          panelKey: getVizPanelKeyForPanelId(newPanelId),
-        }),
-      });
+    if (gridItem instanceof DashboardGridItem) {
+      panelState = sceneUtils.cloneSceneObjectState(gridItem.state.body.state);
+      panelData = sceneGraph.getData(gridItem.state.body).clone();
     } else {
-      if (gridItem instanceof DashboardGridItem) {
-        panelState = sceneUtils.cloneSceneObjectState(gridItem.state.body.state);
-        panelData = sceneGraph.getData(gridItem.state.body).clone();
-      } else {
-        panelState = sceneUtils.cloneSceneObjectState(vizPanel.state);
-        panelData = sceneGraph.getData(vizPanel).clone();
-      }
-
-      // when we duplicate a panel we don't want to clone the alert state
-      delete panelData.state.data?.alertState;
-
-      newGridItem = new DashboardGridItem({
-        x: gridItem.state.x,
-        y: gridItem.state.y,
-        height: gridItem.state.height,
-        width: gridItem.state.width,
-        body: new VizPanel({ ...panelState, $data: panelData, key: getVizPanelKeyForPanelId(newPanelId) }),
-      });
+      panelState = sceneUtils.cloneSceneObjectState(vizPanel.state);
+      panelData = sceneGraph.getData(vizPanel).clone();
     }
+
+    // when we duplicate a panel we don't want to clone the alert state
+    delete panelData.state.data?.alertState;
+
+    newGridItem = new DashboardGridItem({
+      x: gridItem.state.x,
+      y: gridItem.state.y,
+      height: gridItem.state.height,
+      width: gridItem.state.width,
+      variableName: gridItem.state.variableName,
+      repeatDirection: gridItem.state.repeatDirection,
+      maxPerRow: gridItem.state.maxPerRow,
+      body: new VizPanel({ ...panelState, $data: panelData, key: getVizPanelKeyForPanelId(newPanelId) }),
+    });
 
     if (!(this.state.body instanceof SceneGridLayout)) {
       console.error('Trying to duplicate a panel in a layout that is not SceneGridLayout ');
@@ -626,16 +620,6 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
 
     let gridItem = vizPanel.parent;
 
-    if (vizPanel.parent instanceof LibraryVizPanel) {
-      const libraryVizPanel = vizPanel.parent;
-
-      if (!libraryVizPanel.parent) {
-        return;
-      }
-
-      gridItem = libraryVizPanel.parent;
-    }
-
     if (!(gridItem instanceof DashboardGridItem)) {
       console.error('Trying to copy a panel that is not DashboardGridItem child');
       throw new Error('Trying to copy a panel that is not DashboardGridItem child');
@@ -655,9 +639,7 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
     const jsonData = store.get(LS_PANEL_COPY_KEY);
     const jsonObj = JSON.parse(jsonData);
     const panelModel = new PanelModel(jsonObj);
-    const gridItem = !panelModel.libraryPanel
-      ? buildGridItemForPanel(panelModel)
-      : buildGridItemForLibPanel(panelModel);
+    const gridItem = buildGridItemForPanel(panelModel);
 
     const sceneGridLayout = this.state.body;
 
@@ -667,25 +649,9 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
 
     const panelId = dashboardSceneGraph.getNextPanelId(this);
 
-    if (gridItem instanceof DashboardGridItem && gridItem.state.body instanceof LibraryVizPanel) {
-      const panelKey = getVizPanelKeyForPanelId(panelId);
-
-      gridItem.state.body.setState({ panelKey });
-
-      const vizPanel = gridItem.state.body.state.panel;
-
-      if (vizPanel instanceof VizPanel) {
-        vizPanel.setState({ key: panelKey });
-      }
-    } else if (gridItem instanceof DashboardGridItem && gridItem.state.body) {
-      gridItem.state.body.setState({
-        key: getVizPanelKeyForPanelId(panelId),
-      });
-    } else if (gridItem instanceof DashboardGridItem) {
-      gridItem.state.body.setState({
-        key: getVizPanelKeyForPanelId(panelId),
-      });
-    }
+    gridItem.state.body.setState({
+      key: getVizPanelKeyForPanelId(panelId),
+    });
 
     gridItem.setState({
       height: NEW_PANEL_HEIGHT,
@@ -704,7 +670,7 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
 
   public removePanel(panel: VizPanel) {
     const panels: SceneObject[] = [];
-    const key = panel.parent instanceof LibraryVizPanel ? panel.parent.parent?.state.key : panel.parent?.state.key;
+    const key = panel.parent?.state.key;
 
     if (!key) {
       return;
@@ -745,7 +711,7 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
     }
   }
 
-  public unlinkLibraryPanel(panel: LibraryVizPanel) {
+  public unlinkLibraryPanel(panel: VizPanel) {
     if (!panel.parent) {
       return;
     }
@@ -753,13 +719,11 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
     const gridItem = panel.parent;
 
     if (!(gridItem instanceof DashboardGridItem)) {
-      console.error('Trying to unlinka a lib panel in a layout that is not DashboardGridItem');
+      console.error('Trying to unlink a lib panel in a layout that is not DashboardGridItem');
       return;
     }
 
-    gridItem?.setState({
-      body: panel.state.panel?.clone(),
-    });
+    gridItem.state.body.setState({ $behaviors: undefined });
   }
 
   public showModal(modal: SceneObject) {
@@ -793,7 +757,7 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
     locationService.partial({ editview: 'settings' });
   };
 
-  public onShowAddLibraryPanelDrawer(panelToReplaceRef?: SceneObjectRef<LibraryVizPanel>) {
+  public onShowAddLibraryPanelDrawer(panelToReplaceRef?: SceneObjectRef<VizPanel>) {
     this.setState({
       overlay: new AddLibraryPanelDrawer({ panelToReplaceRef }),
     });
@@ -846,13 +810,13 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
       dashboardUID: this.state.uid,
       panelId,
       panelPluginId: panel?.state.pluginId,
-      scopes: this.state.scopes?.getSelectedScopes(),
+      scopes: this._scopesFacade?.value,
     };
   }
 
   public enrichFiltersRequest(): Partial<DataSourceGetTagKeysOptions | DataSourceGetTagValuesOptions> {
     return {
-      scopes: this.state.scopes?.getSelectedScopes(),
+      scopes: this._scopesFacade?.value,
     };
   }
 
@@ -871,8 +835,7 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
     this._initialSaveModel = saveModel;
   }
 
-  public async deleteDashboard() {
-    await deleteDashboard(this.state.uid!, true);
+  public async onDashboardDelete() {
     // Need to mark it non dirty to navigate away without unsaved changes warning
     this.setState({ isDirty: false });
     locationService.replace('/');
@@ -910,6 +873,20 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> {
         sceneGridLayout.toggleRow(child);
       }
     });
+  }
+
+  public onSetScrollRef = (scrollElement: ScrollRefElement): void => {
+    this._scrollRef = scrollElement;
+  };
+
+  public rememberScrollPos() {
+    this._prevScrollPos = this._scrollRef?.scrollTop;
+  }
+
+  public restoreScrollPos() {
+    if (this._prevScrollPos !== undefined) {
+      this._scrollRef?.scrollTo(0, this._prevScrollPos!);
+    }
   }
 }
 
