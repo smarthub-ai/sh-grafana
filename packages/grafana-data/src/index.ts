@@ -145,6 +145,7 @@ export {
   validateFieldConfig,
   applyRawFieldOverrides,
   useFieldOverrides,
+  getFieldDataContextClone,
 } from './field/fieldOverrides';
 export { getFieldDisplayValuesProxy } from './field/getFieldDisplayValuesProxy';
 export {
@@ -579,11 +580,13 @@ export {
   PluginSignatureType,
   PluginErrorCode,
   PluginIncludeType,
+  PluginLoadingStrategy,
   GrafanaPlugin,
   type PluginError,
   type AngularMeta,
   type PluginMeta,
   type PluginDependencies,
+  type PluginExtensions,
   type PluginInclude,
   type PluginBuildInfo,
   type ScreenshotInfo,
@@ -799,6 +802,14 @@ export {
   VariableSuggestionsScope,
   OneClickMode,
 } from './types/dataLink';
+export {
+  type Action,
+  type ActionModel,
+  HttpRequestMethod,
+  defaultActionConfig,
+  contentTypeOptions,
+  httpMethodOptions,
+} from './types/action';
 export { DataFrameType } from './types/dataFrameTypes';
 export {
   FieldType,
