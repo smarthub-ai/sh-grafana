@@ -8,7 +8,6 @@ import { TextEncoder, TextDecoder } from 'util';
 
 import { EventBusSrv } from '@grafana/data';
 import { GrafanaBootConfig } from '@grafana/runtime';
-import { initIconCache } from 'app/core/icons/iconBundle';
 
 import 'blob-polyfill';
 import 'mutationobserver-shim';
@@ -16,10 +15,6 @@ import './mocks/workers';
 
 import '../vendor/flot/jquery.flot';
 import '../vendor/flot/jquery.flot.time';
-
-// icon cache needs to be initialized for test to prevent
-// libraries such as msw from throwing "unhandled resource"-errors
-initIconCache();
 
 const testAppEvents = new EventBusSrv();
 const global = window as any;
@@ -78,7 +73,6 @@ jest.mock('../app/core/core', () => ({
   appEvents: testAppEvents,
 }));
 jest.mock('../app/angular/partials', () => ({}));
-jest.mock('../app/features/plugins/plugin_loader', () => ({}));
 
 const throwUnhandledRejections = () => {
   process.on('unhandledRejection', (err) => {
@@ -90,34 +84,52 @@ throwUnhandledRejections();
 
 // Used by useMeasure
 global.ResizeObserver = class ResizeObserver {
+  static #observationEntry: ResizeObserverEntry = {
+    contentRect: {
+      x: 1,
+      y: 2,
+      width: 500,
+      height: 500,
+      top: 100,
+      bottom: 0,
+      left: 100,
+      right: 0,
+    },
+    target: {
+      // Needed for react-virtual to work in tests
+      getAttribute: () => 1,
+    },
+  } as unknown as ResizeObserverEntry;
+
+  #isObserving = false;
+  #callback: ResizeObserverCallback;
+
   constructor(callback: ResizeObserverCallback) {
+    this.#callback = callback;
+  }
+
+  #emitObservation() {
     setTimeout(() => {
-      callback(
-        [
-          {
-            contentRect: {
-              x: 1,
-              y: 2,
-              width: 500,
-              height: 500,
-              top: 100,
-              bottom: 0,
-              left: 100,
-              right: 0,
-            },
-            target: {
-              // Needed for react-virtual to work in tests
-              getAttribute: () => 1,
-            },
-          } as unknown as ResizeObserverEntry,
-        ],
-        this
-      );
+      if (!this.#isObserving) {
+        return;
+      }
+
+      this.#callback([ResizeObserver.#observationEntry], this);
     });
   }
-  observe() {}
-  disconnect() {}
-  unobserve() {}
+
+  observe() {
+    this.#isObserving = true;
+    this.#emitObservation();
+  }
+
+  disconnect() {
+    this.#isObserving = false;
+  }
+
+  unobserve() {
+    this.#isObserving = false;
+  }
 };
 
 global.BroadcastChannel = class BroadcastChannel {

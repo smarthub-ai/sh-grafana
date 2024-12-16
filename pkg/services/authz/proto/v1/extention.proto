@@ -54,7 +54,6 @@ message RelationshipCondition {
 }
 
 message ReadRequest {
-  // Use namespace instead of store id. It will be handled on the server side
   string namespace = 1;
   ReadRequestTupleKey tuple_key = 2;
   google.protobuf.Int32Value page_size = 3;
@@ -81,7 +80,6 @@ message WriteRequestDeletes {
 }
 
 message WriteRequest {
-  // Use namespace instead of store id. It will be handled on the server side
   string namespace = 1;
   WriteRequestWrites writes = 2;
   WriteRequestDeletes deletes = 3;
