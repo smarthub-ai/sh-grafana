@@ -16,7 +16,6 @@ import {
   openQueryHistory,
   openQueryLibrary,
   submitAddToQueryLibrary,
-  switchToQueryHistory,
 } from './helper/interactions';
 import { setupExplore, waitForExplore } from './helper/setup';
 
@@ -34,6 +33,7 @@ jest.mock('@grafana/runtime', () => ({
     reportInteractionMock(...args);
   },
   getAppEvents: () => testEventBus,
+  usePluginLinks: jest.fn().mockReturnValue({ links: [] }),
 }));
 
 jest.mock('app/core/core', () => ({
@@ -41,6 +41,9 @@ jest.mock('app/core/core', () => ({
     hasPermission: () => true,
     isSignedIn: true,
     getValidIntervals: (defaultIntervals: string[]) => defaultIntervals,
+    user: {
+      isSignedIn: true,
+    },
   },
 }));
 
@@ -77,6 +80,7 @@ function setupQueryLibrary() {
       queryHistory: [{ datasourceUid: 'loki', queries: [mockQuery] }],
       totalCount: 1,
     },
+    withAppChrome: true,
   });
 }
 
@@ -110,8 +114,7 @@ describe('QueryLibrary', () => {
   it('Shows add to query library button only when the toggle is enabled', async () => {
     setupQueryLibrary();
     await waitForExplore();
-    await openQueryLibrary();
-    await switchToQueryHistory();
+    await openQueryHistory();
     await assertQueryHistory(['{"expr":"TEST"}']);
     await assertAddToQueryLibraryButtonExists(true);
   });
@@ -129,8 +132,7 @@ describe('QueryLibrary', () => {
   it('Shows a notification when a template is added and hides the add button', async () => {
     setupQueryLibrary();
     await waitForExplore();
-    await openQueryLibrary();
-    await switchToQueryHistory();
+    await openQueryHistory();
     await assertQueryHistory(['{"expr":"TEST"}']);
     await addQueryHistoryToQueryLibrary();
     await submitAddToQueryLibrary({ description: 'Test' });
