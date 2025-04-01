@@ -1,26 +1,21 @@
 import { cx } from '@emotion/css';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCombobox, useMultipleSelection } from 'downshift';
 import { useCallback, useMemo, useState } from 'react';
 
 import { useStyles2 } from '../../themes';
 import { t } from '../../utils/i18n';
-import { Checkbox } from '../Forms/Checkbox';
 import { Icon } from '../Icon/Icon';
 import { Box } from '../Layout/Box/Box';
-import { Stack } from '../Layout/Stack/Stack';
 import { Portal } from '../Portal/Portal';
-import { ScrollContainer } from '../ScrollContainer/ScrollContainer';
 import { Text } from '../Text/Text';
 import { Tooltip } from '../Tooltip';
 
-import { ComboboxBaseProps, AutoSizeConditionals, VIRTUAL_OVERSCAN_ITEMS } from './Combobox';
-import { NotFoundError } from './MessageRows';
-import { OptionListItem } from './OptionListItem';
+import { ComboboxBaseProps, AutoSizeConditionals } from './Combobox';
+import { ComboboxList } from './ComboboxList';
 import { SuffixIcon } from './SuffixIcon';
 import { ValuePill } from './ValuePill';
 import { itemToString } from './filter';
-import { getComboboxStyles, MENU_OPTION_HEIGHT, MENU_OPTION_HEIGHT_DESCRIPTION } from './getComboboxStyles';
+import { getComboboxStyles } from './getComboboxStyles';
 import { getMultiComboboxStyles } from './getMultiComboboxStyles';
 import { ALL_OPTION_VALUE, ComboboxOption } from './types';
 import { useComboboxFloat } from './useComboboxFloat';
@@ -37,8 +32,19 @@ interface MultiComboboxBaseProps<T extends string | number> extends Omit<Combobo
 export type MultiComboboxProps<T extends string | number> = MultiComboboxBaseProps<T> & AutoSizeConditionals;
 
 export const MultiCombobox = <T extends string | number>(props: MultiComboboxProps<T>) => {
-  const { placeholder, onChange, value, width, enableAllOption, invalid, disabled, minWidth, maxWidth, isClearable } =
-    props;
+  const {
+    placeholder,
+    onChange,
+    value,
+    width,
+    enableAllOption,
+    invalid,
+    disabled,
+    minWidth,
+    maxWidth,
+    isClearable,
+    createCustomValue = false,
+  } = props;
 
   const styles = useStyles2(getComboboxStyles);
   const [inputValue, setInputValue] = useState('');
@@ -55,7 +61,12 @@ export const MultiCombobox = <T extends string | number>(props: MultiComboboxPro
   }, [inputValue]);
 
   // Handle async options and the 'All' option
-  const { options: baseOptions, updateOptions, asyncLoading } = useOptions(props.options);
+  const {
+    options: baseOptions,
+    updateOptions,
+    asyncLoading,
+    asyncError,
+  } = useOptions(props.options, createCustomValue);
   const options = useMemo(() => {
     // Only add the 'All' option if there's more than 1 option
     const addAllOption = enableAllOption && baseOptions.length > 1;
@@ -68,8 +79,8 @@ export const MultiCombobox = <T extends string | number>(props: MultiComboboxPro
       return [];
     }
 
-    return getSelectedItemsFromValue<T>(value, baseOptions);
-  }, [value, baseOptions]);
+    return getSelectedItemsFromValue<T>(value, typeof props.options !== 'function' ? props.options : baseOptions);
+  }, [value, props.options, baseOptions]);
 
   const { measureRef, counterMeasureRef, suffixMeasureRef, shownItems } = useMeasureMulti(
     selectedItems,
@@ -84,7 +95,7 @@ export const MultiCombobox = <T extends string | number>(props: MultiComboboxPro
 
   const { getSelectedItemProps, getDropdownProps, setSelectedItems, addSelectedItem, removeSelectedItem, reset } =
     useMultipleSelection({
-      selectedItems, // initally selected items,
+      selectedItems, // initially selected items,
       onStateChange: ({ type, selectedItems: newSelectedItems }) => {
         switch (type) {
           case useMultipleSelection.stateChangeTypes.SelectedItemKeyDownBackspace:
@@ -202,14 +213,12 @@ export const MultiCombobox = <T extends string | number>(props: MultiComboboxPro
               const filteredSet = new Set(realOptions.map((item) => item.value));
               newSelectedItems = selectedItems.filter((item) => !filteredSet.has(item.value));
             }
-
             setSelectedItems(newSelectedItems);
           } else if (newSelectedItem && isOptionSelected(newSelectedItem)) {
             removeSelectedItem(newSelectedItem);
           } else if (newSelectedItem) {
             addSelectedItem(newSelectedItem);
           }
-
           break;
         case useCombobox.stateChangeTypes.InputChange:
           setInputValue(newInputValue ?? '');
@@ -233,16 +242,6 @@ export const MultiCombobox = <T extends string | number>(props: MultiComboboxPro
     maxWidth,
     isClearable
   );
-
-  const virtualizerOptions = {
-    count: options.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: (index: number) =>
-      'description' in options[index] ? MENU_OPTION_HEIGHT_DESCRIPTION : MENU_OPTION_HEIGHT,
-    overscan: VIRTUAL_OVERSCAN_ITEMS,
-  };
-
-  const rowVirtualizer = useVirtualizer(virtualizerOptions);
 
   // Selected items that show up in the input field
   const visibleItems = isOpen ? selectedItems.slice(0, MAX_SHOWN_ITEMS) : selectedItems.slice(0, shownItems);
@@ -321,60 +320,23 @@ export const MultiCombobox = <T extends string | number>(props: MultiComboboxPro
       <Portal>
         <div
           className={cx(styles.menu, !isOpen && styles.menuClosed)}
-          style={{ ...floatStyles }}
+          style={{
+            ...floatStyles,
+            width: floatStyles.width + 24, // account for checkbox
+          }}
           {...getMenuProps({ ref: floatingRef })}
         >
           {isOpen && (
-            <ScrollContainer showScrollIndicators maxHeight="inherit" ref={scrollRef}>
-              <ul style={{ height: rowVirtualizer.getTotalSize() }} className={styles.menuUlContainer}>
-                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                  const index = virtualRow.index;
-                  const item = options[index];
-                  const itemProps = getItemProps({ item, index });
-                  const isSelected = isOptionSelected(item);
-                  const id = 'multicombobox-option-' + item.value.toString();
-                  const isAll = item.value === ALL_OPTION_VALUE;
-
-                  // TODO: fix bug where if the search filtered items list is the
-                  // same length, but different, than the selected items (ask tobias)
-                  const allItemsSelected =
-                    options[0]?.value === ALL_OPTION_VALUE && selectedItems.length === options.length - 1;
-
-                  return (
-                    <li
-                      key={`${item.value}-${index}`}
-                      data-index={index}
-                      {...itemProps}
-                      className={cx(styles.option, { [styles.optionFocused]: highlightedIndex === index })}
-                      style={{ height: virtualRow.size, transform: `translateY(${virtualRow.start}px)` }}
-                    >
-                      <Stack direction="row" alignItems="center">
-                        <Checkbox
-                          key={id}
-                          value={allItemsSelected || isSelected}
-                          indeterminate={isAll && selectedItems.length > 0 && !allItemsSelected}
-                          aria-labelledby={id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                          }}
-                        />
-                        <OptionListItem
-                          label={
-                            isAll
-                              ? (item.label ?? item.value.toString()) +
-                                (isAll && inputValue !== '' ? ` (${options.length - 1})` : '')
-                              : (item.label ?? item.value.toString())
-                          }
-                          description={item?.description}
-                          id={id}
-                        />
-                      </Stack>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div aria-live="polite">{options.length === 0 && <NotFoundError />}</div>
-            </ScrollContainer>
+            <ComboboxList
+              options={options}
+              highlightedIndex={highlightedIndex}
+              selectedItems={selectedItems}
+              scrollRef={scrollRef}
+              getItemProps={getItemProps}
+              enableAllOption={enableAllOption}
+              isMultiSelect={true}
+              error={asyncError}
+            />
           )}
         </div>
       </Portal>

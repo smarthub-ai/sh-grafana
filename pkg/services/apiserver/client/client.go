@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -11,19 +10,20 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8sUser "k8s.io/apiserver/pkg/authentication/user"
+	k8sRequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 
 	"github.com/grafana/grafana/pkg/apimachinery/identity"
 	"github.com/grafana/grafana/pkg/infra/log"
 	"github.com/grafana/grafana/pkg/registry/apis/dashboard/legacysearcher"
-	"github.com/grafana/grafana/pkg/services/apiserver"
 	"github.com/grafana/grafana/pkg/services/apiserver/endpoints/request"
 	"github.com/grafana/grafana/pkg/services/dashboards"
+	"github.com/grafana/grafana/pkg/services/search/sort"
 	"github.com/grafana/grafana/pkg/services/user"
-	"github.com/grafana/grafana/pkg/setting"
+	"github.com/grafana/grafana/pkg/storage/legacysql/dualwrite"
 	"github.com/grafana/grafana/pkg/storage/unified/resource"
-	k8sUser "k8s.io/apiserver/pkg/authentication/user"
-	k8sRequest "k8s.io/apiserver/pkg/endpoints/request"
 )
 
 type K8sHandler interface {
@@ -36,28 +36,30 @@ type K8sHandler interface {
 	List(ctx context.Context, orgID int64, options v1.ListOptions) (*unstructured.UnstructuredList, error)
 	Search(ctx context.Context, orgID int64, in *resource.ResourceSearchRequest) (*resource.ResourceSearchResponse, error)
 	GetStats(ctx context.Context, orgID int64) (*resource.ResourceStatsResponse, error)
-	GetUserFromMeta(ctx context.Context, userMeta string) (*user.User, error)
+	GetUsersFromMeta(ctx context.Context, userMeta []string) (map[string]*user.User, error)
 }
 
 var _ K8sHandler = (*k8sHandler)(nil)
 
 type k8sHandler struct {
-	namespacer         request.NamespaceMapper
-	gvr                schema.GroupVersionResource
-	restConfigProvider apiserver.RestConfigProvider
-	searcher           resource.ResourceIndexClient
-	userService        user.Service
+	namespacer  request.NamespaceMapper
+	gvr         schema.GroupVersionResource
+	restConfig  func(context.Context) (*rest.Config, error)
+	searcher    resource.ResourceIndexClient
+	userService user.Service
 }
 
-func NewK8sHandler(cfg *setting.Cfg, namespacer request.NamespaceMapper, gvr schema.GroupVersionResource, restConfigProvider apiserver.RestConfigProvider, searcher resource.ResourceIndexClient, dashStore dashboards.Store, userSvc user.Service) K8sHandler {
-	legacySearcher := legacysearcher.NewDashboardSearchClient(dashStore)
-	searchClient := resource.NewSearchClient(cfg, setting.UnifiedStorageConfigKeyDashboard, searcher, legacySearcher)
+func NewK8sHandler(dual dualwrite.Service, namespacer request.NamespaceMapper, gvr schema.GroupVersionResource,
+	restConfig func(context.Context) (*rest.Config, error), dashStore dashboards.Store, userSvc user.Service, resourceClient resource.ResourceClient, sorter sort.Service) K8sHandler {
+	legacySearcher := legacysearcher.NewDashboardSearchClient(dashStore, sorter)
+	searchClient := resource.NewSearchClient(dualwrite.NewSearchAdapter(dual), gvr.GroupResource(), resourceClient, legacySearcher)
+
 	return &k8sHandler{
-		namespacer:         namespacer,
-		gvr:                gvr,
-		restConfigProvider: restConfigProvider,
-		searcher:           searchClient,
-		userService:        userSvc,
+		namespacer:  namespacer,
+		gvr:         gvr,
+		restConfig:  restConfig,
+		searcher:    searchClient,
+		userService: userSvc,
 	}
 }
 
@@ -75,9 +77,9 @@ func (h *k8sHandler) Get(ctx context.Context, name string, orgID int64, options 
 		defer cancel()
 	}
 
-	client, ok := h.getClient(newCtx, orgID)
-	if !ok {
-		return nil, nil
+	client, err := h.getClient(newCtx, orgID)
+	if err != nil {
+		return nil, err
 	}
 
 	return client.Get(newCtx, name, options, subresource...)
@@ -93,9 +95,9 @@ func (h *k8sHandler) Create(ctx context.Context, obj *unstructured.Unstructured,
 		defer cancel()
 	}
 
-	client, ok := h.getClient(newCtx, orgID)
-	if !ok {
-		return nil, nil
+	client, err := h.getClient(newCtx, orgID)
+	if err != nil {
+		return nil, err
 	}
 
 	return client.Create(newCtx, obj, v1.CreateOptions{})
@@ -111,9 +113,9 @@ func (h *k8sHandler) Update(ctx context.Context, obj *unstructured.Unstructured,
 		defer cancel()
 	}
 
-	client, ok := h.getClient(newCtx, orgID)
-	if !ok {
-		return nil, nil
+	client, err := h.getClient(newCtx, orgID)
+	if err != nil {
+		return nil, err
 	}
 
 	return client.Update(newCtx, obj, v1.UpdateOptions{})
@@ -129,9 +131,9 @@ func (h *k8sHandler) Delete(ctx context.Context, name string, orgID int64, optio
 		defer cancel()
 	}
 
-	client, ok := h.getClient(newCtx, orgID)
-	if !ok {
-		return nil
+	client, err := h.getClient(newCtx, orgID)
+	if err != nil {
+		return err
 	}
 
 	return client.Delete(newCtx, name, options)
@@ -147,9 +149,9 @@ func (h *k8sHandler) DeleteCollection(ctx context.Context, orgID int64) error {
 		defer cancel()
 	}
 
-	client, ok := h.getClient(newCtx, orgID)
-	if !ok {
-		return fmt.Errorf("could not get k8s client")
+	client, err := h.getClient(newCtx, orgID)
+	if err != nil {
+		return err
 	}
 
 	return client.DeleteCollection(newCtx, v1.DeleteOptions{}, v1.ListOptions{})
@@ -165,9 +167,9 @@ func (h *k8sHandler) List(ctx context.Context, orgID int64, options v1.ListOptio
 		defer cancel()
 	}
 
-	client, ok := h.getClient(newCtx, orgID)
-	if !ok {
-		return nil, fmt.Errorf("could not get k8s client")
+	client, err := h.getClient(newCtx, orgID)
+	if err != nil {
+		return nil, err
 	}
 
 	return client.List(newCtx, options)
@@ -179,10 +181,12 @@ func (h *k8sHandler) Search(ctx context.Context, orgID int64, in *resource.Resou
 		in.Options = &resource.ListOptions{}
 	}
 
-	in.Options.Key = &resource.ResourceKey{
-		Namespace: h.GetNamespace(orgID),
-		Group:     h.gvr.Group,
-		Resource:  h.gvr.Resource,
+	if in.Options.Key == nil {
+		in.Options.Key = &resource.ResourceKey{
+			Namespace: h.GetNamespace(orgID),
+			Group:     h.gvr.Group,
+			Resource:  h.gvr.Resource,
+		}
 	}
 
 	return h.searcher.Search(ctx, in)
@@ -198,40 +202,65 @@ func (h *k8sHandler) GetStats(ctx context.Context, orgID int64) (*resource.Resou
 	})
 }
 
-// GetUserFromMeta takes what meta accessor gives you from `GetCreatedBy` or `GetUpdatedBy` and returns the user
-func (h *k8sHandler) GetUserFromMeta(ctx context.Context, userMeta string) (*user.User, error) {
-	parts := strings.Split(userMeta, ":")
-	if len(parts) < 2 {
-		return &user.User{}, nil
-	}
-	meta := parts[1]
+// GetUsersFromMeta takes what meta accessor gives you from `GetCreatedBy` or `GetUpdatedBy` and returns the user(s), with the meta as the key
+func (h *k8sHandler) GetUsersFromMeta(ctx context.Context, usersMeta []string) (map[string]*user.User, error) {
+	uids := []string{}
+	ids := []int64{}
+	metaToId := make(map[string]int64)
+	metaToUid := make(map[string]string)
+	userMap := make(map[string]*user.User)
 
-	userId, err := strconv.ParseInt(meta, 10, 64)
-	var u *user.User
-	if err == nil {
-		u, err = h.userService.GetByID(ctx, &user.GetUserByIDQuery{ID: userId})
-	} else {
-		u, err = h.userService.GetByUID(ctx, &user.GetUserByUIDQuery{UID: meta})
+	for _, userMeta := range usersMeta {
+		parts := strings.Split(userMeta, ":")
+		if len(parts) < 2 {
+			return userMap, nil
+		}
+		meta := parts[1]
+
+		userId, err := strconv.ParseInt(meta, 10, 64)
+		if err == nil {
+			ids = append(ids, userId)
+			metaToId[userMeta] = userId
+		} else {
+			uids = append(uids, meta)
+			metaToUid[userMeta] = meta
+		}
 	}
 
-	if err != nil && errors.Is(err, user.ErrUserNotFound) {
-		return &user.User{}, nil
+	users, err := h.userService.ListByIdOrUID(ctx, uids, ids)
+	if err != nil {
+		return userMap, nil
 	}
-	return u, err
+
+	for _, u := range users {
+		for meta, id := range metaToId {
+			if u.ID == id {
+				userMap[meta] = u
+				break
+			}
+		}
+		for meta, uid := range metaToUid {
+			if u.UID == uid {
+				userMap[meta] = u
+				break
+			}
+		}
+	}
+	return userMap, err
 }
 
-func (h *k8sHandler) getClient(ctx context.Context, orgID int64) (dynamic.ResourceInterface, bool) {
-	cfg := h.restConfigProvider.GetRestConfig(ctx)
-	if cfg == nil {
-		return nil, false
+func (h *k8sHandler) getClient(ctx context.Context, orgID int64) (dynamic.ResourceInterface, error) {
+	cfg, err := h.restConfig(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	dyn, err := dynamic.NewForConfig(cfg)
 	if err != nil {
-		return nil, false
+		return nil, fmt.Errorf("could not create dynamic client: %w", err)
 	}
 
-	return dyn.Resource(h.gvr).Namespace(h.GetNamespace(orgID)), true
+	return dyn.Resource(h.gvr).Namespace(h.GetNamespace(orgID)), nil
 }
 
 func (h *k8sHandler) getK8sContext(ctx context.Context) (context.Context, context.CancelFunc, error) {

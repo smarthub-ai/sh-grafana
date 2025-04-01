@@ -23,6 +23,7 @@ import { createWorker } from '../saving/createDetectChangesWorker';
 import { buildGridItemForPanel, transformSaveModelToScene } from '../serialization/transformSaveModelToScene';
 import { DecoratedRevisionModel } from '../settings/VersionsEditView';
 import { historySrv } from '../settings/version-history/HistorySrv';
+import { getCloneKey } from '../utils/clone';
 import { dashboardSceneGraph } from '../utils/dashboardSceneGraph';
 import { djb2Hash } from '../utils/djb2Hash';
 import { findVizPanelByKey, getLibraryPanelBehavior, isLibraryPanel } from '../utils/utils';
@@ -33,7 +34,7 @@ import { LibraryPanelBehavior } from './LibraryPanelBehavior';
 import { PanelTimeRange } from './PanelTimeRange';
 import { DashboardGridItem } from './layout-default/DashboardGridItem';
 import { DefaultGridLayoutManager } from './layout-default/DefaultGridLayoutManager';
-import { RowActions } from './row-actions/RowActions';
+import { RowActions } from './layout-default/row-actions/RowActions';
 
 jest.mock('../settings/version-history/HistorySrv');
 jest.mock('../serialization/transformSaveModelToScene');
@@ -80,7 +81,7 @@ locationUtil.initialize({
 });
 
 const worker = createWorker();
-mockResultsOfDetectChangesWorker({ hasChanges: true, hasTimeChanges: false, hasVariableValueChanges: false });
+mockResultsOfDetectChangesWorker({ hasChanges: true });
 
 describe('DashboardScene', () => {
   describe('DashboardSrv.getCurrent compatibility', () => {
@@ -223,7 +224,7 @@ describe('DashboardScene', () => {
         const prevMeta = { ...scene.state.meta };
 
         // The worker only detects changes in the model, so the folder change should be detected anyway
-        mockResultsOfDetectChangesWorker({ hasChanges: false, hasTimeChanges: false, hasVariableValueChanges: false });
+        mockResultsOfDetectChangesWorker({ hasChanges: false });
 
         scene.setState({
           meta: {
@@ -451,6 +452,27 @@ describe('DashboardScene', () => {
         expect(panel.state.key).toBe('panel-7');
       });
 
+      it('Should select new panel', () => {
+        scene.state.editPane.activate();
+
+        const panel = scene.onCreateNewPanel();
+        expect(scene.state.editPane.state.selection?.getFirstObject()).toBe(panel);
+      });
+
+      it('Should select new row', () => {
+        scene.state.editPane.activate();
+
+        const row = scene.onCreateNewRow();
+        expect(scene.state.editPane.state.selection?.getFirstObject()).toBe(row);
+      });
+
+      it('Should select new tab', () => {
+        scene.state.editPane.activate();
+
+        const tab = scene.onCreateNewTab();
+        expect(scene.state.editPane.state.selection?.getFirstObject()).toBe(tab);
+      });
+
       it('Should fail to copy a panel if it does not have a grid item parent', () => {
         const vizPanel = new VizPanel({
           title: 'Panel Title',
@@ -642,7 +664,7 @@ describe('DashboardScene', () => {
 
     it('Should hash the key of the cloned panels and set it as panelId', () => {
       const queryRunner = sceneGraph.findObject(scene, (o) => o.state.key === 'data-query-runner2')!;
-      const expectedPanelId = djb2Hash('panel-2-clone-1');
+      const expectedPanelId = djb2Hash(getCloneKey('panel-2', 1));
       expect(scene.enrichDataRequest(queryRunner).panelId).toEqual(expectedPanelId);
     });
   });
@@ -684,7 +706,7 @@ describe('DashboardScene', () => {
     });
 
     it('A change to a variable state should set isDirty true', () => {
-      mockResultsOfDetectChangesWorker({ hasChanges: true, hasTimeChanges: false, hasVariableValueChanges: true });
+      mockResultsOfDetectChangesWorker({ hasChanges: true });
       const variable = new TestVariable({ name: 'A' });
       const scene = buildTestScene({
         $variables: new SceneVariableSet({ variables: [variable] }),
@@ -708,13 +730,10 @@ describe('DashboardScene', () => {
       scene.activate();
       scene.onEnterEditMode();
 
-      mockResultsOfDetectChangesWorker({ hasChanges: true, hasTimeChanges: false, hasVariableValueChanges: false });
+      mockResultsOfDetectChangesWorker({ hasChanges: true });
       variable.setState({ name: 'B' });
       expect(scene.state.isDirty).toBe(true);
-      mockResultsOfDetectChangesWorker(
-        // No changes, it is the same name than before comparing saving models
-        { hasChanges: false, hasTimeChanges: false, hasVariableValueChanges: false }
-      );
+      mockResultsOfDetectChangesWorker({ hasChanges: false });
       variable.setState({ name: 'A' });
       expect(scene.state.isDirty).toBe(false);
     });
@@ -915,7 +934,7 @@ function buildTestScene(overrides?: Partial<DashboardSceneState>) {
           new DashboardGridItem({
             body: new VizPanel({
               title: 'Panel B',
-              key: 'panel-2-clone-1',
+              key: getCloneKey('panel-2', 1),
               pluginId: 'table',
               $data: new SceneQueryRunner({ key: 'data-query-runner2', queries: [{ refId: 'A' }] }),
             }),
@@ -937,21 +956,11 @@ function buildTestScene(overrides?: Partial<DashboardSceneState>) {
   return scene;
 }
 
-function mockResultsOfDetectChangesWorker({
-  hasChanges,
-  hasTimeChanges,
-  hasVariableValueChanges,
-}: {
-  hasChanges: boolean;
-  hasTimeChanges: boolean;
-  hasVariableValueChanges: boolean;
-}) {
+function mockResultsOfDetectChangesWorker({ hasChanges = true }) {
   jest.mocked(worker.postMessage).mockImplementationOnce(() => {
     worker.onmessage?.({
       data: {
-        hasChanges: hasChanges ?? true,
-        hasTimeChanges: hasTimeChanges ?? true,
-        hasVariableValueChanges: hasVariableValueChanges ?? true,
+        hasChanges,
       },
     } as unknown as MessageEvent);
   });

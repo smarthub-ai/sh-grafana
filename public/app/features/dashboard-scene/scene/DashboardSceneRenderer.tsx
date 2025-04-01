@@ -5,7 +5,6 @@ import { PageLayoutType } from '@grafana/data';
 import { SceneComponentProps } from '@grafana/scenes';
 import { Page } from 'app/core/components/Page/Page';
 import { getNavModel } from 'app/core/selectors/navModel';
-import DashboardEmpty from 'app/features/dashboard/dashgrid/DashboardEmpty';
 import { useSelector } from 'app/types';
 
 import { DashboardEditPaneSplitter } from '../edit-pane/DashboardEditPaneSplitter';
@@ -15,8 +14,18 @@ import { PanelSearchLayout } from './PanelSearchLayout';
 import { DashboardAngularDeprecationBanner } from './angular/DashboardAngularDeprecationBanner';
 
 export function DashboardSceneRenderer({ model }: SceneComponentProps<DashboardScene>) {
-  const { controls, overlay, editview, editPanel, isEmpty, viewPanelScene, panelSearch, panelsPerRow, isEditing } =
-    model.useState();
+  const {
+    controls,
+    overlay,
+    editview,
+    editPanel,
+    viewPanelScene,
+    panelSearch,
+    panelsPerRow,
+    isEditing,
+    scopesBridge,
+    layoutOrchestrator,
+  } = model.useState();
   const { type } = useParams();
   const location = useLocation();
   const navIndex = useSelector((state) => state.navIndex);
@@ -42,6 +51,7 @@ export function DashboardSceneRenderer({ model }: SceneComponentProps<DashboardS
   if (editview) {
     return (
       <>
+        {scopesBridge && <scopesBridge.Component model={scopesBridge} />}
         <editview.Component model={editview} />
         {overlay && <overlay.Component model={overlay} />}
       </>
@@ -56,26 +66,27 @@ export function DashboardSceneRenderer({ model }: SceneComponentProps<DashboardS
     return (
       <>
         <DashboardAngularDeprecationBanner dashboard={model} key="angular-deprecation-banner" />
-        {isEmpty && (
-          <DashboardEmpty dashboard={model} canCreate={!!model.state.meta.canEdit} key="dashboard-empty-state" />
-        )}
         <bodyToRender.Component model={bodyToRender} />
       </>
     );
   }
 
   return (
-    <Page navModel={navModel} pageNav={pageNav} layout={PageLayoutType.Custom}>
-      {editPanel && <editPanel.Component model={editPanel} />}
-      {!editPanel && (
-        <DashboardEditPaneSplitter
-          dashboard={model}
-          isEditing={isEditing}
-          controls={controls && <controls.Component model={controls} />}
-          body={renderBody()}
-        />
-      )}
-      {overlay && <overlay.Component model={overlay} />}
-    </Page>
+    <>
+      {layoutOrchestrator && <layoutOrchestrator.Component model={layoutOrchestrator} />}
+      <Page navModel={navModel} pageNav={pageNav} layout={PageLayoutType.Custom}>
+        {scopesBridge && <scopesBridge.Component model={scopesBridge} />}
+        {editPanel && <editPanel.Component model={editPanel} />}
+        {!editPanel && (
+          <DashboardEditPaneSplitter
+            dashboard={model}
+            isEditing={isEditing}
+            controls={controls && <controls.Component model={controls} />}
+            body={renderBody()}
+          />
+        )}
+        {overlay && <overlay.Component model={overlay} />}
+      </Page>
+    </>
   );
 }

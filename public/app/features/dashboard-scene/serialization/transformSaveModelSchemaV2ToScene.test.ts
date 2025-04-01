@@ -14,6 +14,7 @@ import {
   AdHocFiltersVariable,
   SceneDataTransformer,
   SceneGridRow,
+  SceneGridItem,
 } from '@grafana/scenes';
 import {
   AdhocVariableKind,
@@ -22,6 +23,7 @@ import {
   DashboardV2Spec,
   DatasourceVariableKind,
   GridLayoutItemSpec,
+  GridLayoutSpec,
   GroupByVariableKind,
   IntervalVariableKind,
   QueryVariableKind,
@@ -33,7 +35,11 @@ import { MIXED_DATASOURCE_NAME } from 'app/plugins/datasource/mixed/MixedDataSou
 
 import { DashboardDataLayerSet } from '../scene/DashboardDataLayerSet';
 import { DefaultGridLayoutManager } from '../scene/layout-default/DefaultGridLayoutManager';
-import { DashboardLayoutManager } from '../scene/types';
+import { AutoGridItem } from '../scene/layout-responsive-grid/ResponsiveGridItem';
+import { AutoGridLayoutManager } from '../scene/layout-responsive-grid/ResponsiveGridLayoutManager';
+import { RowsLayoutManager } from '../scene/layout-rows/RowsLayoutManager';
+import { TabsLayoutManager } from '../scene/layout-tabs/TabsLayoutManager';
+import { DashboardLayoutManager } from '../scene/types/DashboardLayoutManager';
 import { dashboardSceneGraph } from '../utils/dashboardSceneGraph';
 import { getQueryRunnerFor } from '../utils/utils';
 import { validateVariable, validateVizPanel } from '../v2schema/test-helpers';
@@ -52,6 +58,7 @@ export const defaultDashboard: DashboardWithAccessInfo<DashboardV2Spec> = {
     name: 'dashboard-uid',
     namespace: 'default',
     labels: {},
+    generation: 123,
     resourceVersion: '123',
     creationTimestamp: 'creationTs',
     annotations: {
@@ -125,6 +132,7 @@ describe('transformSaveModelSchemaV2ToScene', () => {
     expect(dashboardControls).toBeDefined();
     expect(dashboardControls.state.refreshPicker.state.intervals).toEqual(time.autoRefreshIntervals);
     expect(dashboardControls.state.hideTimeControls).toBe(time.hideTimepicker);
+    expect(dashboardControls.state.timePicker.state.quickRanges).toEqual(dash.timeSettings.quickRanges);
 
     // Variables
     const variables = scene.state?.$variables;
@@ -217,9 +225,6 @@ describe('transformSaveModelSchemaV2ToScene', () => {
     expect(dataLayers.state.annotationLayers[3].state.isEnabled).toBe(dash.annotations[3].spec.enable);
     expect(dataLayers.state.annotationLayers[3].state.isHidden).toBe(dash.annotations[3].spec.hide);
 
-    // To be implemented
-    // expect(timePicker.state.ranges).toEqual(dash.timeSettings.quickRanges);
-
     // VizPanel
     const vizPanels = (scene.state.body as DashboardLayoutManager).getVizPanels();
     expect(vizPanels).toHaveLength(3);
@@ -231,7 +236,7 @@ describe('transformSaveModelSchemaV2ToScene', () => {
     const panel = getPanelElement(dash, 'panel-1')!;
     expect(layout.state.grid.state.children.length).toBe(3);
     expect(layout.state.grid.state.children[0].state.key).toBe(`grid-item-${panel.spec.id}`);
-    const gridLayoutItemSpec = dash.layout.spec.items[0].spec as GridLayoutItemSpec;
+    const gridLayoutItemSpec = (dash.layout.spec as GridLayoutSpec).items[0].spec as GridLayoutItemSpec;
     expect(layout.state.grid.state.children[0].state.width).toBe(gridLayoutItemSpec.width);
     expect(layout.state.grid.state.children[0].state.height).toBe(gridLayoutItemSpec.height);
     expect(layout.state.grid.state.children[0].state.x).toBe(gridLayoutItemSpec.x);
@@ -242,7 +247,7 @@ describe('transformSaveModelSchemaV2ToScene', () => {
     // Library Panel
     const libraryPanel = getLibraryPanelElement(dash, 'panel-2')!;
     expect(layout.state.grid.state.children[1].state.key).toBe(`grid-item-${libraryPanel.spec.id}`);
-    const libraryGridLayoutItemSpec = dash.layout.spec.items[1].spec as GridLayoutItemSpec;
+    const libraryGridLayoutItemSpec = (dash.layout.spec as GridLayoutSpec).items[1].spec as GridLayoutItemSpec;
     expect(layout.state.grid.state.children[1].state.width).toBe(libraryGridLayoutItemSpec.width);
     expect(layout.state.grid.state.children[1].state.height).toBe(libraryGridLayoutItemSpec.height);
     expect(layout.state.grid.state.children[1].state.x).toBe(libraryGridLayoutItemSpec.x);
@@ -288,7 +293,7 @@ describe('transformSaveModelSchemaV2ToScene', () => {
     expect(getQueryRunnerFor(vizPanels[0])?.state.datasource?.uid).toBe(MIXED_DATASOURCE_NAME);
   });
 
-  it('should set panel ds as undefined if it is not mixed DS', () => {
+  it('should set ds if it is not mixed DS', () => {
     const dashboard = cloneDeep(defaultDashboard);
     getPanelElement(dashboard.spec, 'panel-1')?.spec.data.spec.queries.push({
       kind: 'PanelQuery',
@@ -312,10 +317,13 @@ describe('transformSaveModelSchemaV2ToScene', () => {
 
     const vizPanels = (scene.state.body as DashboardLayoutManager).getVizPanels();
     expect(vizPanels.length).toBe(3);
-    expect(getQueryRunnerFor(vizPanels[0])?.state.datasource).toBeUndefined();
+    expect(getQueryRunnerFor(vizPanels[0])?.state.queries[0].datasource).toEqual({
+      type: 'prometheus',
+      uid: 'datasource1',
+    });
   });
 
-  it('should set panel ds as mixed if one ds is undefined', () => {
+  it('should set panel ds as mixed if no panels have ds defined', () => {
     const dashboard = cloneDeep(defaultDashboard);
 
     getPanelElement(dashboard.spec, 'panel-1')?.spec.data.spec.queries.push({
@@ -492,6 +500,168 @@ describe('transformSaveModelSchemaV2ToScene', () => {
         expect(scene.state.meta.canSave).toBe(true);
         expect(scene.state.meta.canEdit).toBe(true);
         expect(scene.state.meta.canDelete).toBe(true);
+      });
+    });
+    describe('dynamic dashboard layouts', () => {
+      it('should build a dashboard scene with a auto grid layout', () => {
+        const dashboard = cloneDeep(defaultDashboard);
+        dashboard.spec.layout = {
+          kind: 'AutoGridLayout',
+          spec: {
+            maxColumnCount: 4,
+            columnWidthMode: 'custom',
+            columnWidth: 100,
+            rowHeightMode: 'standard',
+            items: [
+              {
+                kind: 'AutoGridLayoutItem',
+                spec: {
+                  element: {
+                    kind: 'ElementReference',
+                    name: 'panel-1',
+                  },
+                },
+              },
+            ],
+          },
+        };
+        const scene = transformSaveModelSchemaV2ToScene(dashboard);
+        const layoutManager = scene.state.body as AutoGridLayoutManager;
+        expect(layoutManager.descriptor.id).toBe('auto-grid');
+        expect(layoutManager.state.maxColumnCount).toBe(4);
+        expect(layoutManager.state.columnWidth).toBe(100);
+        expect(layoutManager.state.rowHeight).toBe('standard');
+        expect(layoutManager.state.layout.state.children.length).toBe(1);
+        const gridItem = layoutManager.state.layout.state.children[0] as AutoGridItem;
+        expect(gridItem.state.body.state.key).toBe('panel-1');
+      });
+
+      it('should build a dashboard scene with a tabs layout', () => {
+        const dashboard = cloneDeep(defaultDashboard);
+        dashboard.spec.layout = {
+          kind: 'TabsLayout',
+          spec: {
+            tabs: [
+              {
+                kind: 'TabsLayoutTab',
+                spec: {
+                  title: 'tab1',
+                  layout: {
+                    kind: 'AutoGridLayout',
+                    spec: {
+                      maxColumnCount: 4,
+                      columnWidthMode: 'standard',
+                      rowHeightMode: 'standard',
+                      items: [
+                        {
+                          kind: 'AutoGridLayoutItem',
+                          spec: {
+                            element: {
+                              kind: 'ElementReference',
+                              name: 'panel-1',
+                            },
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        };
+        const scene = transformSaveModelSchemaV2ToScene(dashboard);
+        const layoutManager = scene.state.body as TabsLayoutManager;
+        expect(layoutManager.descriptor.id).toBe('tabs-layout');
+        expect(layoutManager.state.tabs.length).toBe(1);
+        expect(layoutManager.state.tabs[0].state.title).toBe('tab1');
+        const gridLayoutManager = layoutManager.state.tabs[0].state.layout as AutoGridLayoutManager;
+        expect(gridLayoutManager.state.maxColumnCount).toBe(4);
+        expect(gridLayoutManager.state.columnWidth).toBe('standard');
+        expect(gridLayoutManager.state.rowHeight).toBe('standard');
+        expect(gridLayoutManager.state.layout.state.children.length).toBe(1);
+        const gridItem = gridLayoutManager.state.layout.state.children[0] as AutoGridItem;
+        expect(gridItem.state.body.state.key).toBe('panel-1');
+      });
+
+      it('should build a dashboard scene with rows layout', () => {
+        const dashboard = cloneDeep(defaultDashboard);
+        dashboard.spec.layout = {
+          kind: 'RowsLayout',
+          spec: {
+            rows: [
+              {
+                kind: 'RowsLayoutRow',
+                spec: {
+                  title: 'row1',
+                  collapse: false,
+                  layout: {
+                    kind: 'AutoGridLayout',
+                    spec: {
+                      maxColumnCount: 4,
+                      columnWidthMode: 'standard',
+                      rowHeightMode: 'standard',
+                      items: [
+                        {
+                          kind: 'AutoGridLayoutItem',
+                          spec: {
+                            element: {
+                              kind: 'ElementReference',
+                              name: 'panel-1',
+                            },
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+              },
+              {
+                kind: 'RowsLayoutRow',
+                spec: {
+                  title: 'row2',
+                  collapse: true,
+                  layout: {
+                    kind: 'GridLayout',
+                    spec: {
+                      items: [
+                        {
+                          kind: 'GridLayoutItem',
+                          spec: {
+                            y: 0,
+                            x: 0,
+                            height: 10,
+                            width: 10,
+                            element: {
+                              kind: 'ElementReference',
+                              name: 'panel-2',
+                            },
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        };
+        const scene = transformSaveModelSchemaV2ToScene(dashboard);
+        const layoutManager = scene.state.body as RowsLayoutManager;
+        expect(layoutManager.descriptor.id).toBe('rows-layout');
+        expect(layoutManager.state.rows.length).toBe(2);
+        const row1Manager = layoutManager.state.rows[0].state.layout as AutoGridLayoutManager;
+        expect(row1Manager.descriptor.id).toBe('auto-grid');
+        expect(row1Manager.state.maxColumnCount).toBe(4);
+        expect(row1Manager.state.columnWidth).toBe('standard');
+        expect(row1Manager.state.rowHeight).toBe('standard');
+        const row1GridItem = row1Manager.state.layout.state.children[0] as AutoGridItem;
+        expect(row1GridItem.state.body.state.key).toBe('panel-1');
+
+        const row2Manager = layoutManager.state.rows[1].state.layout as DefaultGridLayoutManager;
+        expect(row2Manager.descriptor.id).toBe('default-grid');
+        const row2GridItem = row2Manager.state.grid.state.children[0] as SceneGridItem;
+        expect(row2GridItem.state.body!.state.key).toBe('panel-2');
       });
     });
   });

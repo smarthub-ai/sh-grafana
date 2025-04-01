@@ -1,3 +1,5 @@
+import { config } from '@grafana/runtime';
+
 const graphitePlugin = async () =>
   await import(/* webpackChunkName: "graphitePlugin" */ 'app/plugins/datasource/graphite/module');
 const cloudwatchPlugin = async () =>
@@ -45,6 +47,8 @@ const histogramPanel = async () =>
   await import(/* webpackChunkName: "histogramPanel" */ 'app/plugins/panel/histogram/module');
 const livePanel = async () => await import(/* webpackChunkName: "livePanel" */ 'app/plugins/panel/live/module');
 const logsPanel = async () => await import(/* webpackChunkName: "logsPanel" */ 'app/plugins/panel/logs/module');
+const newLogsPanel = async () =>
+  await import(/* webpackChunkName: "newLogsPanel" */ 'app/plugins/panel/logs-new/module');
 const newsPanel = async () => await import(/* webpackChunkName: "newsPanel" */ 'app/plugins/panel/news/module');
 const pieChartPanel = async () =>
   await import(/* webpackChunkName: "pieChartPanel" */ 'app/plugins/panel/piechart/module');
@@ -53,7 +57,13 @@ const stateTimelinePanel = async () =>
   await import(/* webpackChunkName: "stateTimelinePanel" */ 'app/plugins/panel/state-timeline/module');
 const statusHistoryPanel = async () =>
   await import(/* webpackChunkName: "statusHistoryPanel" */ 'app/plugins/panel/status-history/module');
-const tablePanel = async () => await import(/* webpackChunkName: "tablePanel" */ 'app/plugins/panel/table/module');
+const tablePanel = async () => {
+  if (config.featureToggles.tableNextGen) {
+    return await import(/* webpackChunkName: "tableNewPanel" */ 'app/plugins/panel/table/table-new/module');
+  } else {
+    return await import(/* webpackChunkName: "tablePanel" */ 'app/plugins/panel/table/module');
+  }
+};
 const textPanel = async () => await import(/* webpackChunkName: "textPanel" */ 'app/plugins/panel/text/module');
 const timeseriesPanel = async () =>
   await import(/* webpackChunkName: "timeseriesPanel" */ 'app/plugins/panel/timeseries/module');
@@ -116,6 +126,7 @@ const builtInPlugins: Record<string, System.Module | (() => Promise<System.Modul
   'core:plugin/bargauge': barGaugePanel,
   'core:plugin/barchart': barChartPanel,
   'core:plugin/logs': logsPanel,
+  'core:plugin/logs-new': newLogsPanel,
   'core:plugin/traces': tracesPanel,
   'core:plugin/welcome': welcomeBanner,
   'core:plugin/nodeGraph': nodeGraph,

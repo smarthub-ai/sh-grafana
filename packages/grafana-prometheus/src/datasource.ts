@@ -1,5 +1,6 @@
 // Core Grafana history https://github.com/grafana/grafana/blob/v11.0.0-preview/public/app/plugins/datasource/prometheus/datasource.ts
 import { defaults } from 'lodash';
+import { tz } from 'moment-timezone';
 import { lastValueFrom, Observable, throwError } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import semver from 'semver/preload';
@@ -373,13 +374,39 @@ export class PrometheusDatasource
   }
 
   processTargetV2(target: PromQuery, request: DataQueryRequest<PromQuery>) {
+    // The `utcOffsetSec` parameter is required by the backend to correctly align time ranges.
+    // This alignment ensures that relative time ranges (e.g., "Last N hours/days/years") are adjusted
+    // according to the user's selected time zone, rather than defaulting to UTC.
+    //
+    // Example: If the user selects "Last 5 days," each day should begin at 00:00 in the chosen time zone,
+    // rather than at 00:00 UTC, ensuring an accurate breakdown.
+    //
+    // This adjustment does not apply to absolute time ranges, where users explicitly set
+    // the start and end timestamps.
+    //
+    // Handling `utcOffsetSec`:
+    // - When using the browser's time zone, the UTC offset is derived from the request range object.
+    // - When the user selects a custom time zone, the UTC offset must be calculated accordingly.
+    // More details:
+    // - Issue that led to the introduction of utcOffsetSec: https://github.com/grafana/grafana/issues/17278
+    // - Implementation PR: https://github.com/grafana/grafana/pull/17477
+    let utcOffset = request.range.to.utcOffset();
+    if (request.timezone === 'browser') {
+      // we need to check if the request is a relative or absolute range.
+      // if it is absolute time range then utcOffset must be 0. we don't care the offset
+      // because we are already sending the from and to values in utc. we don't need to adjust them again
+      // for relative ranges we need utcOffset to adjust query range.
+      utcOffset = this.isUsingRelativeTimeRange(request.range) ? utcOffset : 0;
+    } else {
+      utcOffset = tz(request.timezone).utcOffset();
+    }
+
     const processedTargets: PromQuery[] = [];
     const processedTarget = {
       ...target,
       exemplar: this.shouldRunExemplarQuery(target, request),
       requestId: request.panelId + target.refId,
-      // We need to pass utcOffsetSec to backend to calculate aligned range
-      utcOffsetSec: request.range.to.utcOffset() * 60,
+      utcOffsetSec: utcOffset * 60,
     };
 
     if (config.featureToggles.promQLScope) {
@@ -456,13 +483,15 @@ export class PrometheusDatasource
       return Promise.resolve([]);
     }
 
+    const timeRange = options?.range ?? getDefaultTimeRange();
+
     const scopedVars = {
       ...this.getIntervalVars(),
-      ...this.getRangeScopedVars(options?.range ?? getDefaultTimeRange()),
+      ...this.getRangeScopedVars(timeRange),
     };
     const interpolated = this.templateSrv.replace(query, scopedVars, this.interpolateQueryExpr);
     const metricFindQuery = new PrometheusMetricFindQuery(this, interpolated);
-    return metricFindQuery.process(options?.range ?? getDefaultTimeRange());
+    return metricFindQuery.process(timeRange);
   }
 
   getIntervalVars() {
@@ -625,6 +654,10 @@ export class PrometheusDatasource
   // it is used in metric_find_query.ts
   // and in Tempo here grafana/public/app/plugins/datasource/tempo/QueryEditor/ServiceGraphSection.tsx
   async getTagKeys(options: DataSourceGetTagKeysOptions<PromQuery>): Promise<MetricFindValue[]> {
+    if (!options.timeRange) {
+      options.timeRange = getDefaultTimeRange();
+    }
+
     if (config.featureToggles.promQLScope && (options?.scopes?.length ?? 0) > 0) {
       const suggestions = await this.languageProvider.fetchSuggestions(
         options.timeRange,
@@ -651,7 +684,10 @@ export class PrometheusDatasource
     }));
     const expr = promQueryModeller.renderLabels(labelFilters);
 
-    let labelsIndex: Record<string, string[]> = await this.languageProvider.fetchLabelsWithMatch(expr);
+    let labelsIndex: Record<string, string[]> = await this.languageProvider.fetchLabelsWithMatch(
+      options.timeRange,
+      expr
+    );
 
     // filter out already used labels
     return Object.keys(labelsIndex)
@@ -660,9 +696,13 @@ export class PrometheusDatasource
   }
 
   // By implementing getTagKeys and getTagValues we add ad-hoc filters functionality
-  async getTagValues(options: DataSourceGetTagValuesOptions<PromQuery>) {
+  async getTagValues(options: DataSourceGetTagValuesOptions<PromQuery>): Promise<MetricFindValue[]> {
+    if (!options.timeRange) {
+      options.timeRange = getDefaultTimeRange();
+    }
+
     const requestId = `[${this.uid}][${options.key}]`;
-    if (config.featureToggles.promQLScope) {
+    if (config.featureToggles.promQLScope && (options?.scopes?.length ?? 0) > 0) {
       return (
         await this.languageProvider.fetchSuggestions(
           options.timeRange,
@@ -686,7 +726,7 @@ export class PrometheusDatasource
 
     if (this.hasLabelsMatchAPISupport()) {
       return (
-        await this.languageProvider.fetchSeriesValuesWithMatch(options.key, expr, requestId, options.timeRange)
+        await this.languageProvider.fetchSeriesValuesWithMatch(options.timeRange, options.key, expr, requestId)
       ).map((v) => ({
         value: v,
         text: v,
@@ -971,6 +1011,14 @@ export class PrometheusDatasource
       }
       return this.interpolateQueryExpr(value, variable);
     };
+  }
+
+  isUsingRelativeTimeRange(range: TimeRange): boolean {
+    if (typeof range.raw.from !== 'string' || typeof range.raw.to !== 'string') {
+      return false;
+    }
+
+    return range.raw.from.includes('now') || range.raw.to.includes('now');
   }
 
   getDebounceTimeInMilliseconds(): number {

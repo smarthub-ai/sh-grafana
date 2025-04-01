@@ -10,6 +10,7 @@ import (
 	"github.com/grafana/grafana/pkg/services/pluginsintegration/managedplugins"
 	"github.com/grafana/grafana/pkg/services/pluginsintegration/plugininstaller"
 	"github.com/grafana/grafana/pkg/services/pluginsintegration/pluginstore"
+	"github.com/grafana/grafana/pkg/services/pluginsintegration/provisionedplugins"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,12 +22,13 @@ func TestRun(t *testing.T) {
 		pluginArchives     map[string]*repo.PluginArchiveInfo
 		pluginPreinstalled []string
 		pluginManaged      []string
-		expectedErrors     []advisor.CheckV0alpha1StatusReportErrors
+		pluginProvisioned  []string
+		expectedFailures   []advisor.CheckReportFailure
 	}{
 		{
-			name:           "No plugins",
-			plugins:        []pluginstore.Plugin{},
-			expectedErrors: []advisor.CheckV0alpha1StatusReportErrors{},
+			name:             "No plugins",
+			plugins:          []pluginstore.Plugin{},
+			expectedFailures: []advisor.CheckReportFailure{},
 		},
 		{
 			name: "Deprecated plugin",
@@ -39,11 +41,17 @@ func TestRun(t *testing.T) {
 			pluginArchives: map[string]*repo.PluginArchiveInfo{
 				"plugin1": {Version: "1.0.0"},
 			},
-			expectedErrors: []advisor.CheckV0alpha1StatusReportErrors{
+			expectedFailures: []advisor.CheckReportFailure{
 				{
-					Severity: advisor.CheckStatusSeverityHigh,
-					Reason:   "Plugin deprecated: plugin1",
-					Action:   "Check the <a href='https://grafana.com/legal/plugin-deprecation/#a-plugin-i-use-is-deprecated-what-should-i-do' target=_blank>documentation</a> for recommended steps.",
+					Severity: advisor.CheckReportFailureSeverityHigh,
+					StepID:   "deprecation",
+					Item:     "plugin1",
+					Links: []advisor.CheckErrorLink{
+						{
+							Url:     "/plugins/plugin1",
+							Message: "Admin",
+						},
+					},
 				},
 			},
 		},
@@ -58,11 +66,17 @@ func TestRun(t *testing.T) {
 			pluginArchives: map[string]*repo.PluginArchiveInfo{
 				"plugin2": {Version: "1.1.0"},
 			},
-			expectedErrors: []advisor.CheckV0alpha1StatusReportErrors{
+			expectedFailures: []advisor.CheckReportFailure{
 				{
-					Severity: advisor.CheckStatusSeverityLow,
-					Reason:   "New version available for plugin2",
-					Action:   "Go to the <a href='/plugins/plugin2?page=version-history'>plugin admin page</a> and upgrade to the latest version.",
+					Severity: advisor.CheckReportFailureSeverityLow,
+					StepID:   "update",
+					Item:     "plugin2",
+					Links: []advisor.CheckErrorLink{
+						{
+							Url:     "/plugins/plugin2?page=version-history",
+							Message: "Upgrade",
+						},
+					},
 				},
 			},
 		},
@@ -77,11 +91,17 @@ func TestRun(t *testing.T) {
 			pluginArchives: map[string]*repo.PluginArchiveInfo{
 				"plugin2": {Version: "beta"},
 			},
-			expectedErrors: []advisor.CheckV0alpha1StatusReportErrors{
+			expectedFailures: []advisor.CheckReportFailure{
 				{
-					Severity: advisor.CheckStatusSeverityLow,
-					Reason:   "New version available for plugin2",
-					Action:   "Go to the <a href='/plugins/plugin2?page=version-history'>plugin admin page</a> and upgrade to the latest version.",
+					Severity: advisor.CheckReportFailureSeverityLow,
+					StepID:   "update",
+					Item:     "plugin2",
+					Links: []advisor.CheckErrorLink{
+						{
+							Url:     "/plugins/plugin2?page=version-history",
+							Message: "Upgrade",
+						},
+					},
 				},
 			},
 		},
@@ -97,7 +117,7 @@ func TestRun(t *testing.T) {
 				"plugin3": {Version: "1.1.0"},
 			},
 			pluginPreinstalled: []string{"plugin3"},
-			expectedErrors:     []advisor.CheckV0alpha1StatusReportErrors{},
+			expectedFailures:   []advisor.CheckReportFailure{},
 		},
 		{
 			name: "Managed plugin",
@@ -110,8 +130,22 @@ func TestRun(t *testing.T) {
 			pluginArchives: map[string]*repo.PluginArchiveInfo{
 				"plugin4": {Version: "1.1.0"},
 			},
-			pluginManaged:  []string{"plugin4"},
-			expectedErrors: []advisor.CheckV0alpha1StatusReportErrors{},
+			pluginManaged:    []string{"plugin4"},
+			expectedFailures: []advisor.CheckReportFailure{},
+		},
+		{
+			name: "Provisioned plugin",
+			plugins: []pluginstore.Plugin{
+				{JSONData: plugins.JSONData{ID: "plugin5", Info: plugins.Info{Version: "1.0.0"}}},
+			},
+			pluginInfo: map[string]*repo.PluginInfo{
+				"plugin5": {Status: "active"},
+			},
+			pluginArchives: map[string]*repo.PluginArchiveInfo{
+				"plugin5": {Version: "1.1.0"},
+			},
+			pluginProvisioned: []string{"plugin5"},
+			expectedFailures:  []advisor.CheckReportFailure{},
 		},
 	}
 
@@ -124,12 +158,24 @@ func TestRun(t *testing.T) {
 			}
 			pluginPreinstall := &mockPluginPreinstall{pinned: tt.pluginPreinstalled}
 			managedPlugins := &mockManagedPlugins{managed: tt.pluginManaged}
-			check := New(pluginStore, pluginRepo, pluginPreinstall, managedPlugins)
+			provisionedPlugins := &mockProvisionedPlugins{provisioned: tt.pluginProvisioned}
+			check := New(pluginStore, pluginRepo, pluginPreinstall, managedPlugins, provisionedPlugins)
 
-			report, err := check.Run(context.Background(), nil)
+			items, err := check.Items(context.Background())
 			assert.NoError(t, err)
-			assert.Equal(t, int64(len(tt.plugins)), report.Count)
-			assert.Equal(t, tt.expectedErrors, report.Errors)
+			failures := []advisor.CheckReportFailure{}
+			for _, step := range check.Steps() {
+				for _, item := range items {
+					stepFailures, err := step.Run(context.Background(), &advisor.CheckSpec{}, item)
+					assert.NoError(t, err)
+					if stepFailures != nil {
+						failures = append(failures, *stepFailures)
+					}
+				}
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, len(tt.plugins), len(items))
+			assert.Equal(t, tt.expectedFailures, failures)
 		})
 	}
 }
@@ -178,4 +224,13 @@ type mockManagedPlugins struct {
 
 func (m *mockManagedPlugins) ManagedPlugins(ctx context.Context) []string {
 	return m.managed
+}
+
+type mockProvisionedPlugins struct {
+	provisionedplugins.Manager
+	provisioned []string
+}
+
+func (m *mockProvisionedPlugins) ProvisionedPlugins(ctx context.Context) ([]string, error) {
+	return m.provisioned, nil
 }

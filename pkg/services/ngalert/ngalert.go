@@ -148,6 +148,8 @@ type AlertNG struct {
 	Api                 *api.API
 	httpClientProvider  httpclient.Provider
 	InstanceStore       state.InstanceStore
+	// StartupInstanceReader is used to fetch the state of alerts on startup.
+	StartupInstanceReader state.InstanceReader
 
 	// Alerting notification services
 	MultiOrgAlertmanager *notifier.MultiOrgAlertmanager
@@ -372,7 +374,7 @@ func (ng *AlertNG) init() error {
 		// Force-disable the feature if the feature toggle is not on - sets us up for feature toggle removal.
 		ng.Cfg.UnifiedAlerting.RecordingRules.Enabled = false
 	}
-	recordingWriter, err := createRecordingWriter(ng.FeatureToggles, ng.Cfg.UnifiedAlerting.RecordingRules, ng.httpClientProvider, clk, ng.Metrics.GetRemoteWriterMetrics())
+	recordingWriter, err := createRecordingWriter(ng.FeatureToggles, ng.Cfg.UnifiedAlerting.RecordingRules, ng.httpClientProvider, ng.DataSourceService, clk, ng.Metrics.GetRemoteWriterMetrics())
 	if err != nil {
 		return fmt.Errorf("failed to initialize recording writer: %w", err)
 	}
@@ -404,24 +406,22 @@ func (ng *AlertNG) init() error {
 		return err
 	}
 
-	ng.InstanceStore = initInstanceStore(ng.store.SQLStore, ng.Log.New("ngalert.state.instancestore"), ng.FeatureToggles)
+	ng.InstanceStore, ng.StartupInstanceReader = initInstanceStore(ng.store.SQLStore, ng.Log, ng.FeatureToggles)
 
 	stateManagerCfg := state.ManagerCfg{
-		Metrics:                        ng.Metrics.GetStateMetrics(),
-		ExternalURL:                    appUrl,
-		DisableExecution:               !ng.Cfg.UnifiedAlerting.ExecuteAlerts,
-		InstanceStore:                  ng.InstanceStore,
-		Images:                         ng.ImageService,
-		Clock:                          clk,
-		Historian:                      history,
-		DoNotSaveNormalState:           ng.FeatureToggles.IsEnabledGlobally(featuremgmt.FlagAlertingNoNormalState),
-		ApplyNoDataAndErrorToAllStates: ng.FeatureToggles.IsEnabledGlobally(featuremgmt.FlagAlertingNoDataErrorExecution),
-		MaxStateSaveConcurrency:        ng.Cfg.UnifiedAlerting.MaxStateSaveConcurrency,
-		StatePeriodicSaveBatchSize:     ng.Cfg.UnifiedAlerting.StatePeriodicSaveBatchSize,
-		RulesPerRuleGroupLimit:         ng.Cfg.UnifiedAlerting.RulesPerRuleGroupLimit,
-		Tracer:                         ng.tracer,
-		Log:                            log.New("ngalert.state.manager"),
-		ResolvedRetention:              ng.Cfg.UnifiedAlerting.ResolvedAlertRetention,
+		Metrics:                    ng.Metrics.GetStateMetrics(),
+		ExternalURL:                appUrl,
+		DisableExecution:           !ng.Cfg.UnifiedAlerting.ExecuteAlerts,
+		InstanceStore:              ng.InstanceStore,
+		Images:                     ng.ImageService,
+		Clock:                      clk,
+		Historian:                  history,
+		MaxStateSaveConcurrency:    ng.Cfg.UnifiedAlerting.MaxStateSaveConcurrency,
+		StatePeriodicSaveBatchSize: ng.Cfg.UnifiedAlerting.StatePeriodicSaveBatchSize,
+		RulesPerRuleGroupLimit:     ng.Cfg.UnifiedAlerting.RulesPerRuleGroupLimit,
+		Tracer:                     ng.tracer,
+		Log:                        log.New("ngalert.state.manager"),
+		ResolvedRetention:          ng.Cfg.UnifiedAlerting.ResolvedAlertRetention,
 	}
 	statePersister := initStatePersister(ng.Cfg.UnifiedAlerting, stateManagerCfg, ng.FeatureToggles)
 	stateManager := state.NewManager(stateManagerCfg, statePersister)
@@ -519,17 +519,29 @@ func (ng *AlertNG) init() error {
 	return DeclareFixedRoles(ng.AccesscontrolService, ng.FeatureToggles)
 }
 
-func initInstanceStore(sqlStore db.DB, logger log.Logger, featureToggles featuremgmt.FeatureToggles) state.InstanceStore {
+// initInstanceStore initializes the instance store based on the feature toggles.
+// It returns two vales: the instance store that should be used for writing alert instances,
+// and an alert instance reader that can be used to read alert instances on startup.
+func initInstanceStore(sqlStore db.DB, logger log.Logger, featureToggles featuremgmt.FeatureToggles) (state.InstanceStore, state.InstanceReader) {
 	var instanceStore state.InstanceStore
+
+	// We init both stores here, but only one will be used based on the feature toggles.
+	// Two stores are needed for the multi-instance reader to work correctly.
+	// It's used to read the state of alerts on startup, and allows switching the feature
+	// flags seamlessly without losing the state of alerts.
+	protoInstanceStore := store.ProtoInstanceDBStore{
+		SQLStore:       sqlStore,
+		Logger:         logger,
+		FeatureToggles: featureToggles,
+	}
+	simpleInstanceStore := store.InstanceDBStore{
+		SQLStore: sqlStore,
+		Logger:   logger,
+	}
 
 	if featureToggles.IsEnabledGlobally(featuremgmt.FlagAlertingSaveStateCompressed) {
 		logger.Info("Using protobuf-based alert instance store")
-		instanceStore = store.ProtoInstanceDBStore{
-			SQLStore:       sqlStore,
-			Logger:         logger,
-			FeatureToggles: featureToggles,
-		}
-
+		instanceStore = protoInstanceStore
 		// If FlagAlertingSaveStateCompressed is enabled, ProtoInstanceDBStore is used,
 		// which functions differently from InstanceDBStore. FlagAlertingSaveStatePeriodic is
 		// not applicable to ProtoInstanceDBStore, so a warning is logged if it is set.
@@ -538,14 +550,10 @@ func initInstanceStore(sqlStore db.DB, logger log.Logger, featureToggles feature
 		}
 	} else {
 		logger.Info("Using simple database alert instance store")
-		instanceStore = store.InstanceDBStore{
-			SQLStore:       sqlStore,
-			Logger:         logger,
-			FeatureToggles: featureToggles,
-		}
+		instanceStore = simpleInstanceStore
 	}
 
-	return instanceStore
+	return instanceStore, state.NewMultiInstanceReader(logger, protoInstanceStore, simpleInstanceStore)
 }
 
 func initStatePersister(uaCfg setting.UnifiedAlertingSettings, cfg state.ManagerCfg, featureToggles featuremgmt.FeatureToggles) state.StatePersister {
@@ -605,7 +613,7 @@ func (ng *AlertNG) Run(ctx context.Context) error {
 		// Also note that this runs synchronously to ensure state is loaded
 		// before rule evaluation begins, hence we use ctx and not subCtx.
 		//
-		ng.stateManager.Warm(ctx, ng.store, ng.InstanceStore)
+		ng.stateManager.Warm(ctx, ng.store, ng.store, ng.StartupInstanceReader)
 
 		children.Go(func() error {
 			return ng.schedule.Run(subCtx)
@@ -745,11 +753,24 @@ func createRemoteAlertmanager(cfg remote.AlertmanagerConfig, kvstore kvstore.KVS
 	return remote.NewAlertmanager(cfg, notifier.NewFileStore(cfg.OrgID, kvstore), decryptFn, autogenFn, m, tracer)
 }
 
-func createRecordingWriter(featureToggles featuremgmt.FeatureToggles, settings setting.RecordingRuleSettings, httpClientProvider httpclient.Provider, clock clock.Clock, m *metrics.RemoteWriter) (schedule.RecordingWriter, error) {
+func createRecordingWriter(featureToggles featuremgmt.FeatureToggles, settings setting.RecordingRuleSettings, httpClientProvider httpclient.Provider, datasourceService datasources.DataSourceService, clock clock.Clock, m *metrics.RemoteWriter) (schedule.RecordingWriter, error) {
 	logger := log.New("ngalert.writer")
 
 	if settings.Enabled {
-		return writer.NewPrometheusWriter(settings, httpClientProvider, clock, logger, m)
+		if featureToggles.IsEnabledGlobally(featuremgmt.FlagGrafanaManagedRecordingRulesDatasources) {
+			cfg := writer.DatasourceWriterConfig{
+				Timeout:              settings.Timeout,
+				DefaultDatasourceUID: settings.DefaultDatasourceUID,
+			}
+
+			logger.Info("Setting up remote write using data sources",
+				"timeout", cfg.Timeout, "default_datasource_uid", cfg.DefaultDatasourceUID)
+
+			return writer.NewDatasourceWriter(cfg, datasourceService, httpClientProvider, clock, logger, m), nil
+		} else {
+			logger.Info("Setting up remote write using static configuration")
+			return writer.NewPrometheusWriterWithSettings(settings, httpClientProvider, clock, logger, m)
+		}
 	}
 
 	return writer.NoopWriter{}, nil

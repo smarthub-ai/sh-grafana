@@ -41,6 +41,7 @@ import {
   GridLayoutItemKind,
 } from '@grafana/schema/dist/esm/schema/dashboard/v2alpha0';
 import { DashboardLink, DataTransformerConfig } from '@grafana/schema/src/raw/dashboard/x/dashboard_types.gen';
+import { isWeekStart, WeekStart } from '@grafana/ui';
 import {
   AnnoKeyCreatedBy,
   AnnoKeyDashboardGnetId,
@@ -62,6 +63,7 @@ import {
   transformVariableRefreshToEnumV1,
 } from 'app/features/dashboard-scene/serialization/transformToV1TypesUtils';
 import {
+  LEGACY_STRING_VALUE_KEY,
   transformCursorSynctoEnum,
   transformDataTopic,
   transformSortVariableToEnum,
@@ -103,13 +105,8 @@ export function ensureV2Response(
   if (isDashboardResource(dto)) {
     accessMeta = dto.access;
     annotationsMeta = {
-      [AnnoKeyCreatedBy]: dto.metadata.annotations?.[AnnoKeyCreatedBy],
-      [AnnoKeyUpdatedBy]: dto.metadata.annotations?.[AnnoKeyUpdatedBy],
-      [AnnoKeyUpdatedTimestamp]: dto.metadata.annotations?.[AnnoKeyUpdatedTimestamp],
-      [AnnoKeyFolder]: dto.metadata.annotations?.[AnnoKeyFolder],
-      [AnnoKeySlug]: dto.metadata.annotations?.[AnnoKeySlug],
+      ...dto.metadata.annotations,
       [AnnoKeyDashboardGnetId]: dashboard.gnetId ?? undefined,
-      [AnnoKeyDashboardIsSnapshot]: dto.metadata.annotations?.[AnnoKeyDashboardIsSnapshot],
     };
     creationTimestamp = dto.metadata.creationTimestamp;
     labelsMeta = {
@@ -138,7 +135,7 @@ export function ensureV2Response(
     };
     creationTimestamp = dto.meta.created;
     labelsMeta = {
-      [DeprecatedInternalId]: dashboard.id ?? undefined,
+      [DeprecatedInternalId]: dashboard.id?.toString() ?? undefined,
     };
   }
 
@@ -163,8 +160,8 @@ export function ensureV2Response(
       autoRefreshIntervals: dashboard.timepicker?.refresh_intervals || timeSettingsDefaults.autoRefreshIntervals,
       fiscalYearStartMonth: dashboard.fiscalYearStartMonth || timeSettingsDefaults.fiscalYearStartMonth,
       hideTimepicker: dashboard.timepicker?.hidden || timeSettingsDefaults.hideTimepicker,
-      quickRanges: dashboard.timepicker?.time_options || timeSettingsDefaults.quickRanges,
-      weekStart: dashboard.weekStart || timeSettingsDefaults.weekStart,
+      quickRanges: dashboard.timepicker?.quick_ranges,
+      weekStart: getWeekStart(dashboard.weekStart, timeSettingsDefaults.weekStart),
       nowDelay: dashboard.timepicker?.nowDelay || timeSettingsDefaults.nowDelay,
     },
     links: dashboard.links || [],
@@ -192,13 +189,13 @@ export function ensureV2Response(
 export function ensureV1Response(
   dashboard: DashboardDTO | DashboardWithAccessInfo<DashboardV2Spec> | DashboardWithAccessInfo<DashboardDataDTO>
 ): DashboardDTO {
-  // if dashboard is not on v0 schema or v2 schema, return as is
+  // if dashboard is not on v1 schema or v2 schema, return as is
   if (!isDashboardResource(dashboard)) {
     return dashboard;
   }
 
   const spec = dashboard.spec;
-  // if dashboard is on v0 schema
+  // if dashboard is on v1 schema
   if (isDashboardV0Spec(spec)) {
     return {
       meta: {
@@ -207,7 +204,7 @@ export function ensureV1Response(
         isFolder: false,
         uid: dashboard.metadata.name,
         k8s: dashboard.metadata,
-        version: parseInt(dashboard.metadata.resourceVersion, 10),
+        version: dashboard.metadata.generation,
       },
       dashboard: spec,
     };
@@ -254,12 +251,12 @@ export function ensureV1Response(
         timepicker: {
           refresh_intervals: spec.timeSettings.autoRefreshIntervals,
           hidden: spec.timeSettings.hideTimepicker,
-          time_options: spec.timeSettings.quickRanges,
+          quick_ranges: spec.timeSettings.quickRanges,
           nowDelay: spec.timeSettings.nowDelay,
         },
         fiscalYearStartMonth: spec.timeSettings.fiscalYearStartMonth,
         weekStart: spec.timeSettings.weekStart,
-        version: parseInt(dashboard.metadata.resourceVersion, 10),
+        version: dashboard.metadata.generation,
         links: spec.links,
         annotations: { list: annotations },
         panels,
@@ -301,7 +298,7 @@ function getElementsFromPanels(
 
       const rowElements = [];
 
-      for (const panel of p.panels) {
+      for (const panel of p.panels || []) {
         const [element, name] = buildElement(panel);
         elements[name] = element;
         rowElements.push(buildGridItemKind(panel, name, yOffsetInRows(panel, p.gridPos!.y)));
@@ -332,6 +329,13 @@ function getElementsFromPanels(
 
 function isRowPanel(panel: Panel | RowPanel): panel is RowPanel {
   return panel.type === 'row';
+}
+
+function getWeekStart(weekStart?: string, defaultWeekStart?: WeekStart): WeekStart | undefined {
+  if (!weekStart || !isWeekStart(weekStart)) {
+    return defaultWeekStart;
+  }
+  return weekStart;
 }
 
 function buildRowKind(p: RowPanel, elements: GridLayoutItemKind[]): GridLayoutRowKind {
@@ -371,6 +375,8 @@ function yOffsetInRows(p: Panel, rowY: number): number {
 }
 
 function buildElement(p: Panel): [PanelKind | LibraryPanelKind, string] {
+  const element_identifier = `panel-${p.id}`;
+
   if (p.libraryPanel) {
     // LibraryPanelKind
     const panelKind: LibraryPanelKind = {
@@ -385,7 +391,7 @@ function buildElement(p: Panel): [PanelKind | LibraryPanelKind, string] {
       },
     };
 
-    return [panelKind, p.id!.toString()];
+    return [panelKind, element_identifier];
   } else {
     // PanelKind
 
@@ -434,8 +440,7 @@ function buildElement(p: Panel): [PanelKind | LibraryPanelKind, string] {
         },
       },
     };
-
-    return [panelKind, p.id!.toString()];
+    return [panelKind, element_identifier];
   }
 }
 
@@ -509,8 +514,12 @@ function getVariables(vars: TypedVariableModel[]): DashboardV2Spec['variables'] 
         let query = v.query || {};
 
         if (typeof query === 'string') {
-          console.error('Query variable query is a string. It needs to extend DataQuery.');
-          query = {};
+          console.warn(
+            'Query variable query is a string which is deprecated in the schema v2. It should extend DataQuery'
+          );
+          query = {
+            [LEGACY_STRING_VALUE_KEY]: query,
+          };
         }
 
         const qv: QueryVariableKind = {
@@ -531,9 +540,7 @@ function getVariables(vars: TypedVariableModel[]): DashboardV2Spec['variables'] 
             sort: transformSortVariableToEnum(v.sort),
             query: {
               kind: v.datasource?.type || getDefaultDatasourceType(),
-              spec: {
-                ...query,
-              },
+              spec: query,
             },
           },
         };
@@ -713,7 +720,10 @@ function getVariablesV1(vars: DashboardV2Spec['variables']): VariableModel[] {
           ...commonProperties,
           current: v.spec.current,
           options: v.spec.options,
-          query: typeof v.spec.query === 'string' ? v.spec.query : v.spec.query.spec,
+          query:
+            LEGACY_STRING_VALUE_KEY in v.spec.query.spec
+              ? v.spec.query.spec[LEGACY_STRING_VALUE_KEY]
+              : v.spec.query.spec,
           datasource: v.spec.datasource,
           sort: transformSortVariableToEnumV1(v.spec.sort),
           refresh: transformVariableRefreshToEnumV1(v.spec.refresh),
@@ -856,6 +866,10 @@ function getPanelsV1(
   const panelsV1: Array<Panel | LibraryPanelDTO | RowPanel> = [];
 
   let maxPanelId = 0;
+
+  if (layout.kind !== 'GridLayout') {
+    throw new Error('Cannot convert non-GridLayout layout to v1');
+  }
 
   for (const item of layout.spec.items) {
     if (item.kind === 'GridLayoutItem') {
