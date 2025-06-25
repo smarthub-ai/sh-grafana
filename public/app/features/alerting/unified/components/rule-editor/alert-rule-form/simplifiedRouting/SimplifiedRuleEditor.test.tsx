@@ -51,16 +51,30 @@ const selectFolderAndGroup = async (user: UserEvent) => {
   await clickSelectOption(groupInput, grafanaRulerGroup.name);
 };
 
-const selectContactPoint = async (user: UserEvent, contactPointName: string) => {
+const selectContactPoint = async (contactPointName: string) => {
   const contactPointInput = await ui.inputs.simplifiedRouting.contactPoint.find();
-  await user.click(byRole('combobox').get(contactPointInput));
   await clickSelectOption(contactPointInput, contactPointName);
 };
 
-setupMswServer();
-describe('Can create a new grafana managed alert using simplified routing', () => {
-  testWithFeatureToggles(['alertingSimplifiedRouting']);
+// combobox hack
+beforeEach(() => {
+  const mockGetBoundingClientRect = jest.fn(() => ({
+    width: 120,
+    height: 120,
+    top: 0,
+    left: 0,
+    bottom: 0,
+    right: 0,
+  }));
 
+  Object.defineProperty(Element.prototype, 'getBoundingClientRect', {
+    value: mockGetBoundingClientRect,
+  });
+});
+
+setupMswServer();
+
+describe('Can create a new grafana managed alert using simplified routing', () => {
   beforeEach(() => {
     window.localStorage.clear();
     setupDataSources(dataSources.default, dataSources.am);
@@ -97,7 +111,7 @@ describe('Can create a new grafana managed alert using simplified routing', () =
 
     // do not select a contact point
     // save and check that call to backend was not made
-    await user.click(ui.buttons.saveAndExit.get());
+    await user.click(ui.buttons.save.get());
     expect(await screen.findByText('Contact point is required.')).toBeInTheDocument();
     const capturedRequests = await capture;
 
@@ -126,28 +140,23 @@ describe('Can create a new grafana managed alert using simplified routing', () =
     //select contact point routing
     await user.click(ui.inputs.simplifiedRouting.contactPointRouting.get());
 
-    await selectContactPoint(user, contactPointName);
+    await selectContactPoint(contactPointName);
 
     // save and check what was sent to backend
-    await user.click(ui.buttons.saveAndExit.get());
+    await user.click(ui.buttons.save.get());
     const requests = await capture;
 
     const serializedRequests = await serializeRequests(requests);
     expect(serializedRequests).toMatchSnapshot();
   });
 
-  describe('alertingApiServer enabled', () => {
-    testWithFeatureToggles(['alertingApiServer']);
+  it('allows selecting a contact point', async () => {
+    const { user } = renderRuleEditor();
 
-    it('allows selecting a contact point when using alerting API server', async () => {
-      const { user } = renderRuleEditor();
+    await user.click(await ui.inputs.simplifiedRouting.contactPointRouting.find());
 
-      await user.click(await ui.inputs.simplifiedRouting.contactPointRouting.find());
-
-      await selectContactPoint(user, 'Email');
-
-      expect(await screen.findByText('Email')).toBeInTheDocument();
-    });
+    await selectContactPoint('lotsa-emails');
+    expect(screen.getByDisplayValue('lotsa-emails')).toBeInTheDocument();
   });
 
   describe('switch modes enabled', () => {
@@ -163,10 +172,10 @@ describe('Can create a new grafana managed alert using simplified routing', () =
 
       await selectFolderAndGroup(user);
 
-      await selectContactPoint(user, contactPointName);
+      await selectContactPoint(contactPointName);
 
       // save and check what was sent to backend
-      await user.click(ui.buttons.saveAndExit.get());
+      await user.click(ui.buttons.save.get());
       const requests = await capture;
       const serializedRequests = await serializeRequests(requests);
       expect(serializedRequests).toMatchSnapshot();
@@ -184,7 +193,7 @@ describe('Can create a new grafana managed alert using simplified routing', () =
       await selectFolderAndGroup(user);
 
       // save and check what was sent to backend
-      await user.click(ui.buttons.saveAndExit.get());
+      await user.click(ui.buttons.save.get());
       const requests = await capture;
       const serializedRequests = await serializeRequests(requests);
       expect(serializedRequests).toMatchSnapshot();
@@ -202,7 +211,7 @@ describe('Can create a new grafana managed alert using simplified routing', () =
       await user.click(ui.inputs.switchModeBasic(GrafanaRuleFormStep.Notification).get()); // switch notifications step to advanced mode
 
       // save and check what was sent to backend
-      await user.click(ui.buttons.saveAndExit.get());
+      await user.click(ui.buttons.save.get());
       const requests = await capture;
       const serializedRequests = await serializeRequests(requests);
       expect(serializedRequests).toMatchSnapshot();
@@ -217,12 +226,12 @@ describe('Can create a new grafana managed alert using simplified routing', () =
       await user.type(await ui.inputs.name.find(), 'my great new rule');
 
       await selectFolderAndGroup(user);
-      await selectContactPoint(user, contactPointName);
+      await selectContactPoint(contactPointName);
 
       await user.click(ui.inputs.switchModeBasic(GrafanaRuleFormStep.Query).get()); // switch query step to advanced mode
 
       // save and check what was sent to backend
-      await user.click(ui.buttons.saveAndExit.get());
+      await user.click(ui.buttons.save.get());
       const requests = await capture;
       const serializedRequests = await serializeRequests(requests);
       expect(serializedRequests).toMatchSnapshot();
