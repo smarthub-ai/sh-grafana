@@ -1,14 +1,20 @@
 name: Build Release Packages
 on:
   workflow_dispatch:
+    inputs:
+      source-event:
+        description: If this workflow was triggered by another workflow, this value should be set to the GITHUB_EVENT_NAME of that source workflow.
+        type: string
+        required: false
+        default: workflow_dispatch
+  schedule:
+    # Every weeknight at midnight
+    # "Scheduled workflows will only run on the default branch." (docs.github.com)
+    - cron: "0 0 * * 1-5"
   push:
     branches:
       - release-*.*.*
       - main
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -43,8 +49,10 @@ jobs:
   setup:
     name: setup
     runs-on: github-hosted-ubuntu-x64-small
+    if: github.repository == 'grafana/grafana'
     outputs:
       version: ${{ steps.output.outputs.version }}
+      grafana-commit: ${{ steps.output.outputs.grafana_commit }}
     permissions:
       contents: read
     steps:
@@ -61,9 +69,11 @@ jobs:
         run: jq -r .version package.json | sed -s "s/pre/${BUILD_ID}/g" > VERSION
         env:
           REF_NAME: ${{ github.ref_name }}
-          BUILD_ID: ${{ github.run_number }}
+          BUILD_ID: ${{ github.run_id }}
       - id: output
-        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+          echo "grafana_commit=$(git rev-parse HEAD)" | tee -a "$GITHUB_OUTPUT"
   # Triggers the same workflow in `grafana-enterprise` on the same ref
   downstream:
     runs-on: github-hosted-ubuntu-x64-small
@@ -73,11 +83,6 @@ jobs:
       id-token: write
     name: Dispatch grafana-enterprise build
     steps:
-      - name: Log in to GCS
-        id: login-to-gcs
-        uses: grafana/shared-workflows/actions/login-to-gcs@login-to-gcs/v0.2.1
-        with:
-          environment: prod
       - id: vault-secrets
         uses: grafana/shared-workflows/actions/get-vault-secrets@main
         with:
@@ -95,12 +100,15 @@ jobs:
         env:
           REF: ${{ github.ref_name }}
           VERSION: ${{ needs.setup.outputs.version }}
-          BUILD_ID: ${{ github.run_number }}
-          BUCKET: ${{ steps.login-to-gcs.outputs.bucket }}
+          BUILD_ID: ${{ github.run_id }}
+          BUCKET: grafana-prerelease
+          GRAFANA_COMMIT: ${{ needs.setup.outputs.grafana-commit }}
+          SOURCE_EVENT: ${{ inputs.source-event || github.event_name }}
         with:
+          github-token: ${{ steps.generate_token.outputs.token }}
           script: |
-            const {REF, VERSION, BUILD_ID, BUCKET} = process.env;
-
+            const {REF, VERSION, BUILD_ID, BUCKET, GRAFANA_COMMIT, SOURCE_EVENT} = process.env;
+            
             await github.rest.actions.createWorkflowDispatch({
                 owner: 'grafana',
                 repo: 'grafana-enterprise',
@@ -108,8 +116,10 @@ jobs:
                 ref:  REF,
                 inputs: {
                   "version": VERSION,
-                  "build-id": BUILD_ID,
+                  "build-id": String(BUILD_ID),
                   "bucket": BUCKET,
+                  "grafana-commit": GRAFANA_COMMIT,
+                  "source-event": SOURCE_EVENT,
                 }
             })
 
@@ -130,22 +140,31 @@ jobs:
         include:
           - name: linux-amd64
             artifacts: targz:grafana:linux/amd64,deb:grafana:linux/amd64,rpm:grafana:linux/amd64,docker:grafana:linux/amd64,docker:grafana:linux/amd64:ubuntu,npm:grafana,storybook
+            verify: true
           - name: linux-arm64
             artifacts: targz:grafana:linux/arm64,deb:grafana:linux/arm64,rpm:grafana:linux/arm64,docker:grafana:linux/arm64,docker:grafana:linux/arm64:ubuntu
+            verify: false
           - name: linux-s390x
             artifacts: targz:grafana:linux/s390x,deb:grafana:linux/s390x,rpm:grafana:linux/s390x,docker:grafana:linux/s390x,docker:grafana:linux/s390x:ubuntu
+            verify: true
           - name: linux-armv7
             artifacts: targz:grafana:linux/arm/v7,deb:grafana:linux/arm/v7,docker:grafana:linux/arm/v7,docker:grafana:linux/arm/v7:ubuntu
+            verify: true
           - name: linux-armv6
             artifacts: targz:grafana:linux/arm/v6,deb:grafana:linux/arm/v6
+            verify: true
           - name: windows-amd64
             artifacts: targz:grafana:windows/amd64,zip:grafana:windows/amd64,msi:grafana:windows/amd64
+            verify: true
           - name: windows-arm64
             artifacts: targz:grafana:windows/arm64,zip:grafana:windows/arm64
+            verify: true
           - name: darwin-amd64
             artifacts: targz:grafana:darwin/amd64
+            verify: true
           - name: darwin-arm64
             artifacts: targz:grafana:darwin/arm64
+            verify: true
     steps:
       - uses: grafana/shared-workflows/actions/dockerhub-login@main
       - uses: actions/checkout@v4
@@ -164,8 +183,8 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           version: ${{ needs.setup.outputs.version }}
           output: artifacts-${{ matrix.name }}.txt
-          verify: true
-          build-id: ${{ github.run_number }}
+          verify: ${{ matrix.verify }}
+          build-id: ${{ github.run_id }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: artifacts-list-${{ matrix.name }}
@@ -188,19 +207,5 @@ jobs:
       bucket: grafana-prerelease
       pattern: artifacts-*
       run-id: ${{ github.run_id }}
-      bucket-path: ${{ needs.setup.outputs.version }}
-      environment: prod
-  publish-artifact-lists:
-    name: Upload artifacts
-    uses: grafana/grafana/.github/workflows/publish-artifact.yml@main
-    permissions:
-      id-token: write
-    needs:
-      - setup
-      - build
-    with:
-      bucket: grafana-prerelease
-      pattern: artifacts-list-*
-      run-id: ${{ github.run_id }}
-      bucket-path: ${{ needs.setup.outputs.version }}
+      bucket-path: ${{ needs.setup.outputs.version }}_${{ github.run_id }}
       environment: prod
