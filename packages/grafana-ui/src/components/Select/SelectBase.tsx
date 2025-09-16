@@ -353,6 +353,7 @@ export function SelectBase<T, Rest = {}>({
                 role="button"
                 aria-label="select-clear-value"
                 className={styles.singleValueRemove}
+                style={{ display: 'none' }}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();

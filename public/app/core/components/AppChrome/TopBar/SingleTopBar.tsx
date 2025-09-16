@@ -23,7 +23,7 @@ import { InviteUserButton } from './InviteUserButton';
 import { ProfileButton } from './ProfileButton';
 import { SignInLink } from './SignInLink';
 import { TopNavBarMenu } from './TopNavBarMenu';
-import { TopSearchBarCommandPaletteTrigger } from './TopSearchBarCommandPaletteTrigger';
+// import { TopSearchBarCommandPaletteTrigger } from './TopSearchBarCommandPaletteTrigger';
 
 export const MEGA_MENU_TOGGLE_ID = 'mega-menu-toggle';
 
@@ -72,8 +72,8 @@ export const SingleTopBar = memo(function SingleTopBar({
         <Breadcrumbs breadcrumbs={breadcrumbs} className={styles.breadcrumbsWrapper} />
       </Stack>
 
-      <Stack gap={0.5} alignItems="center">
-        <TopSearchBarCommandPaletteTrigger />
+      <Stack gap={0.5} alignItems="center" justifyContent="end">
+        {/*<TopSearchBarCommandPaletteTrigger />*/}
         {unifiedHistoryEnabled && <HistoryContainer />}
         <QuickAdd />
         {enrichedHelpNode && (

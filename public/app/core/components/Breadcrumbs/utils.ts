@@ -64,6 +64,5 @@ export function buildBreadcrumbs(
 
   // shouldDedupe = true enables app plugins to control breadcrumbs of their root pages
   addCrumbs(sectionNav, true);
-
-  return crumbs;
+  return crumbs.filter((crumb) => crumb.href !== '/' && crumb.href !== '/dashboards');
 }
