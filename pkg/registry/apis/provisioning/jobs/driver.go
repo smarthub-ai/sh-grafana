@@ -10,9 +10,9 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/grafana/grafana-app-sdk/logging"
+	"github.com/grafana/grafana/apps/provisioning/pkg/apifmt"
 	provisioning "github.com/grafana/grafana/apps/provisioning/pkg/apis/provisioning/v0alpha1"
 	"github.com/grafana/grafana/pkg/apimachinery/identity"
-	"github.com/grafana/grafana/pkg/registry/apis/provisioning/apifmt"
 )
 
 // Store is an abstraction for the storage API.
@@ -44,10 +44,8 @@ type Store interface {
 	RenewLease(ctx context.Context, job *provisioning.Job) error
 
 	// Get retrieves a job by name for conflict resolution.
-	Get(ctx context.Context, name string) (*provisioning.Job, error)
+	Get(ctx context.Context, namespace, name string) (*provisioning.Job, error)
 }
-
-var _ Store = (*persistentStore)(nil)
 
 // jobDriver drives jobs to completion and manages the job queue.
 // There may be multiple jobDrivers running in parallel.
@@ -278,7 +276,7 @@ func (d *jobDriver) processJob(ctx context.Context, job *provisioning.Job, recor
 			continue
 		}
 
-		repo, err := d.repoGetter.GetRepository(ctx, job.Spec.Repository)
+		repo, err := d.repoGetter.GetRepository(ctx, job.Namespace, job.Spec.Repository)
 		if err != nil {
 			return apifmt.Errorf("failed to get repository '%s': %w", job.Spec.Repository, err)
 		}
@@ -299,7 +297,7 @@ func (d *jobDriver) onProgress(job *provisioning.Job) ProgressFn {
 			currentJob := job
 			if attempt > 0 {
 				// Fetch the latest version to resolve conflicts
-				latest, err := d.store.Get(ctx, job.GetName())
+				latest, err := d.store.Get(ctx, job.GetNamespace(), job.GetName())
 				if err != nil {
 					if apierrors.IsNotFound(err) {
 						// Job was completed/deleted, nothing to update
