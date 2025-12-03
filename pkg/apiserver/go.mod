@@ -5,7 +5,7 @@ go 1.25.3
 require (
 	github.com/google/go-cmp v0.7.0
 	github.com/grafana/authlib/types v0.0.0-20251119142549-be091cf2f4d4
-	github.com/grafana/grafana-app-sdk/logging v0.48.3
+	github.com/grafana/grafana-app-sdk/logging v0.48.4
 	github.com/grafana/grafana/pkg/apimachinery v0.0.0-20250514132646-acbc7b54ed9e
 	github.com/prometheus/client_golang v1.23.2
 	github.com/stretchr/testify v1.11.1
