@@ -620,8 +620,8 @@ github.com/grafana/dskit v0.0.0-20250908063411-6b6da59b5cc4 h1:jSojuc7njleS3UOz2
 github.com/grafana/dskit v0.0.0-20250908063411-6b6da59b5cc4/go.mod h1:VahT+GtfQIM+o8ht2StR6J9g+Ef+C2Vokh5uuSmOD/4=
 github.com/grafana/grafana-app-sdk v0.48.4 h1:t9r+Y6E7D832ZxQ2c1n0lp6cvsYKhhrAodVYzE1y0s0=
 github.com/grafana/grafana-app-sdk v0.48.4/go.mod h1:HJsMOSBmt/D/Ihs1SvagOwmXKi0coBMVHlfvdd+qe9Y=
-github.com/grafana/grafana-app-sdk/logging v0.48.3 h1:72NUpGNiJXCNQz/on++YSsl38xuVYYBKv5kKQaOClX4=
-github.com/grafana/grafana-app-sdk/logging v0.48.3/go.mod h1:Gh/nBWnspK3oDNWtiM5qUF/fardHzOIEez+SPI3JeHA=
+github.com/grafana/grafana-app-sdk/logging v0.48.4 h1:DUBgj4BN4XmWVujHZqyXVMsOv/6AwByIsa5qBTxWH/o=
+github.com/grafana/grafana-app-sdk/logging v0.48.4/go.mod h1:Gh/nBWnspK3oDNWtiM5qUF/fardHzOIEez+SPI3JeHA=
 github.com/grafana/grafana-aws-sdk v1.3.0 h1:/bfJzP93rCel1GbWoRSq0oUo424MZXt8jAp2BK9w8tM=
 github.com/grafana/grafana-aws-sdk v1.3.0/go.mod h1:VGycF0JkCGKND2O5je1ucOqPJ0ZNhZYzV3c2bNBAaGk=
 github.com/grafana/grafana-azure-sdk-go/v2 v2.3.1 h1:FFcEA01tW+SmuJIuDbHOdgUBL+d7DPrZ2N4zwzPhfGk=
