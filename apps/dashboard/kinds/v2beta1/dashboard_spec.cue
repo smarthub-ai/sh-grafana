@@ -113,9 +113,13 @@ DashboardLink: {
 	placement?: DashboardLinkPlacement
 }
 
-// Dashboard Link placement. Defines where the link should be displayed. 
+// Dashboard Link placement. Defines where the link should be displayed.
 // - "inControlsMenu" renders the link in bottom part of the dashboard controls dropdown menu
 DashboardLinkPlacement: "inControlsMenu"
+
+// Annotation Query placement. Defines where the annotation query should be displayed.
+// - "inControlsMenu" renders the annotation query in the dashboard controls dropdown menu
+AnnotationQueryPlacement: "inControlsMenu"
 
 // A topic is attached to DataFrame metadata in query results.
 // This specifies where the data should be used.
@@ -152,6 +156,8 @@ FieldConfigSource: {
 	defaults: FieldConfig
 	// Overrides are the options applied to specific fields overriding the defaults.
 	overrides: [...{
+		// Describes config override rules created when interacting with Grafana.
+		"__systemRef"?: string
 		matcher: MatcherConfig
 		properties: [...DynamicConfigValue]
 	}]
@@ -245,7 +251,8 @@ MatcherConfig: {
 }
 
 Threshold: {
-	value: number
+	// Value null means -Infinity
+	value: number | null
 	color: string
 }
 
@@ -335,7 +342,12 @@ ValueMappingResult: {
 // `thresholds`: From thresholds. Informs Grafana to take the color from the matching threshold
 // `palette-classic`: Classic palette. Grafana will assign color by looking up a color in a palette by series index. Useful for Graphs and pie charts and other categorical data visualizations
 // `palette-classic-by-name`: Classic palette (by name). Grafana will assign color by looking up a color in a palette by series name. Useful for Graphs and pie charts and other categorical data visualizations
-// `continuous-GrYlRd`: ontinuous Green-Yellow-Red palette mode
+// `continuous-viridis`: Continuous Viridis palette mode
+// `continuous-magma`: Continuous Magma palette mode
+// `continuous-plasma`: Continuous Plasma palette mode
+// `continuous-inferno`: Continuous Inferno palette mode
+// `continuous-cividis`: Continuous Cividis palette mode
+// `continuous-GrYlRd`: Continuous Green-Yellow-Red palette mode
 // `continuous-RdYlGr`: Continuous Red-Yellow-Green palette mode
 // `continuous-BlYlRd`: Continuous Blue-Yellow-Red palette mode
 // `continuous-YlRd`: Continuous Yellow-Red palette mode
@@ -347,7 +359,7 @@ ValueMappingResult: {
 // `continuous-purples`: Continuous Purple palette mode
 // `shades`: Shades of a single color. Specify a single color, useful in an override rule.
 // `fixed`: Fixed color mode. Specify a single color, useful in an override rule.
-FieldColorModeId: "thresholds" | "palette-classic" | "palette-classic-by-name" | "continuous-GrYlRd" | "continuous-RdYlGr" | "continuous-BlYlRd" | "continuous-YlRd" | "continuous-BlPu" | "continuous-YlBl" | "continuous-blues" | "continuous-reds" | "continuous-greens" | "continuous-purples" | "fixed" | "shades"
+FieldColorModeId: "thresholds" | "palette-classic" | "palette-classic-by-name" | "continuous-viridis" | "continuous-magma" | "continuous-plasma" | "continuous-inferno" | "continuous-cividis" | "continuous-GrYlRd" | "continuous-RdYlGr" | "continuous-BlYlRd" | "continuous-YlRd" | "continuous-BlPu" | "continuous-YlBl" | "continuous-blues" | "continuous-reds" | "continuous-greens" | "continuous-purples" | "fixed" | "shades"
 
 // Defines how to assign a series color from "by value" color schemes. For example for an aggregated data points like a timeseries, the color can be assigned by the min, max or last value.
 FieldColorSeriesByMode: "min" | "max" | "last"
@@ -372,7 +384,7 @@ FetchOptions: {
 	url: string
 	body?: string
 	// These are 2D arrays of strings, each representing a key-value pair
-	// We are defining them this way because we can't generate a go struct that 
+	// We are defining them this way because we can't generate a go struct that
 	// that would have exactly two strings in each sub-array
 	queryParams?: [...[...string]]
 	headers?: [...[...string]]
@@ -382,7 +394,7 @@ InfinityOptions: FetchOptions & {
 	datasourceUid: string
 }
 
-HttpRequestMethod: "GET" | "PUT" | "POST" | "DELETE" | "PATCH" 
+HttpRequestMethod: "GET" | "PUT" | "POST" | "DELETE" | "PATCH"
 
 // Action variable type
 ActionVariableType: "string"
@@ -436,6 +448,8 @@ AnnotationQuerySpec: {
 	name:        string
 	builtIn?:    bool | *false
 	filter?:     AnnotationPanelFilter
+	// Placement can be used to display the annotation query somewhere else on the dashboard other than the default location.
+	placement?:  AnnotationQueryPlacement
 	legacyOptions?:     [string]: _ // Catch-all field for datasource-specific properties. Should not be available in as code tooling.
 }
 
@@ -452,6 +466,7 @@ QueryOptionsSpec: {
 	interval?:         string
 	cacheTimeout?:     string
 	hideTimeOverride?: bool
+	timeCompare?:      string
 }
 
 DataQueryKind: {
@@ -468,7 +483,7 @@ DataQueryKind: {
 
 PanelQuerySpec: {
 	query:       DataQueryKind
-	refId:  string
+	refId:  string | *"A"
 	hidden: bool
 }
 
@@ -710,9 +725,9 @@ VariableCustomFormatterFn: {
 // `custom`: Define the variable options manually using a comma-separated list.
 // `system`: Variables defined by Grafana. See: https://grafana.com/docs/grafana/latest/dashboards/variables/add-template-variables/#global-variables
 VariableType: "query" | "adhoc" | "groupby" | "constant" | "datasource" | "interval" | "textbox" | "custom" |
-	"system" | "snapshot"
+	"system" | "snapshot" | "switch"
 
-VariableKind: QueryVariableKind | TextVariableKind | ConstantVariableKind | DatasourceVariableKind | IntervalVariableKind | CustomVariableKind | GroupByVariableKind | AdhocVariableKind
+VariableKind: QueryVariableKind | TextVariableKind | ConstantVariableKind | DatasourceVariableKind | IntervalVariableKind | CustomVariableKind | GroupByVariableKind | AdhocVariableKind | SwitchVariableKind
 
 // Sort variable options
 // Accepted values are:
@@ -770,7 +785,6 @@ QueryVariableSpec: {
 	refresh:      VariableRefresh
 	skipUrlSync:  bool | *false
 	description?: string
-	showInControlsMenu?: bool
 	query:        DataQueryKind
 	regex:        string | *""
 	sort:         VariableSort
@@ -783,7 +797,6 @@ QueryVariableSpec: {
 	allowCustomValue: bool | *true
 	staticOptions?: [...VariableOption]
 	staticOptionsOrder?: "before" | "after" | "sorted"
-	showInControlsMenu?: bool
 }
 
 // Query variable kind
@@ -804,7 +817,6 @@ TextVariableSpec: {
 	hide:         VariableHide
 	skipUrlSync:  bool | *false
 	description?: string
-	showInControlsMenu?: bool
 }
 
 // Text variable kind
@@ -825,7 +837,6 @@ ConstantVariableSpec: {
 	hide:         VariableHide
 	skipUrlSync:  bool | *false
 	description?: string
-	showInControlsMenu?: bool
 }
 
 // Constant variable kind
@@ -853,7 +864,6 @@ DatasourceVariableSpec: {
 	skipUrlSync:  bool | *false
 	description?: string
 	allowCustomValue: bool | *true
-	showInControlsMenu?: bool
 }
 
 // Datasource variable kind
@@ -874,12 +884,11 @@ IntervalVariableSpec: {
 	auto:         bool | *false
 	auto_min:     string | *""
 	auto_count:   int | *0
-	refresh:      VariableRefresh
+	refresh:      "onTimeRangeChanged"
 	label?:       string
 	hide:         VariableHide
 	skipUrlSync:  bool | *false
 	description?: string
-	showInControlsMenu?: bool
 }
 
 // Interval variable kind
@@ -902,13 +911,28 @@ CustomVariableSpec: {
 	skipUrlSync:  bool | *false
 	description?: string
 	allowCustomValue: bool | *true
-	showInControlsMenu?: bool
 }
 
 // Custom variable kind
 CustomVariableKind: {
 	kind: "CustomVariable"
 	spec: CustomVariableSpec
+}
+
+SwitchVariableSpec: {
+	name:    	   string | *""
+	current:       string | *"false"
+	enabledValue:  string | *"true"
+	disabledValue: string | *"false"
+	label?:        string
+	hide:          VariableHide
+	skipUrlSync:   bool | *false
+	description?:  string
+}
+
+SwitchVariableKind: {
+	kind: "SwitchVariable"
+	spec: SwitchVariableSpec
 }
 
 // GroupBy variable specification
@@ -925,7 +949,6 @@ GroupByVariableSpec: {
 	hide:         VariableHide
 	skipUrlSync:  bool | *false
 	description?: string
-	showInControlsMenu?: bool
 }
 
 // Group variable kind
@@ -949,7 +972,6 @@ AdhocVariableSpec: {
 	skipUrlSync:  bool | *false
 	description?: string
 	allowCustomValue: bool | *true
-	showInControlsMenu?: bool
 }
 
 // Define the MetricFindValue type

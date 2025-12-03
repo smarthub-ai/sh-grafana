@@ -1,6 +1,7 @@
-import { act, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import { VariableHide } from '@grafana/data';
 import { SceneVariableSet, TextBoxVariable, QueryVariable, CustomVariable, SceneVariable } from '@grafana/scenes';
 
 import {
@@ -21,7 +22,6 @@ describe('DashboardControlsMenu', () => {
       new TextBoxVariable({
         name: 'textVar',
         value: 'test',
-        showInControlsMenu: false,
       }),
     ];
     const { container } = render(<DashboardControlsButton dashboard={getDashboard(variables)} />);
@@ -33,7 +33,7 @@ describe('DashboardControlsMenu', () => {
       new TextBoxVariable({
         name: 'textVar',
         value: 'test',
-        showInControlsMenu: true,
+        hide: VariableHide.inControlsMenu,
       }),
     ];
 
@@ -51,60 +51,58 @@ describe('DashboardControlsMenu', () => {
       new TextBoxVariable({
         name: 'textVar1',
         value: 'test1',
-        showInControlsMenu: true,
+        hide: VariableHide.inControlsMenu,
       }),
       new TextBoxVariable({
         name: 'textVar2',
         value: 'test2',
-        showInControlsMenu: true,
+        hide: VariableHide.inControlsMenu,
       }),
       new QueryVariable({
         name: 'queryVar',
         query: 'test query',
-        showInControlsMenu: true,
-      }),
-    ];
-
-    act(() => {
-      render(<DashboardControlsButton dashboard={getDashboard(variables)} />);
-    });
-
-    // Should have rendered a dropdown
-    expect(screen.getByRole('button')).toBeInTheDocument();
-
-    // Open the dropdown
-    userEvent.click(screen.getByRole('button'));
-    expect(await screen.findByText('textVar1')).toBeInTheDocument();
-    expect(await screen.findByText('textVar2')).toBeInTheDocument();
-    expect(await screen.findByText('queryVar')).toBeInTheDocument();
-  });
-
-  it('should filter out variables with showInControlsMenu=false', async () => {
-    const variables = [
-      new TextBoxVariable({
-        name: 'textVar1',
-        value: 'test1',
-        showInControlsMenu: true,
-      }),
-      new TextBoxVariable({
-        name: 'textVar2',
-        value: 'test2',
-        showInControlsMenu: false, // This should be filtered out
-      }),
-      new CustomVariable({
-        name: 'customVar',
-        query: 'option1,option2',
-        showInControlsMenu: true,
+        hide: VariableHide.inControlsMenu,
       }),
     ];
 
     render(<DashboardControlsButton dashboard={getDashboard(variables)} />);
 
-    // Should still render dropdown since we have variables with showInControlsMenu=true
+    // Should have rendered a dropdown
     expect(screen.getByRole('button')).toBeInTheDocument();
 
     // Open the dropdown
-    userEvent.click(screen.getByRole('button'));
+    await userEvent.click(screen.getByRole('button'));
+    expect(await screen.findByText('textVar1')).toBeInTheDocument();
+    expect(await screen.findByText('textVar2')).toBeInTheDocument();
+    expect(await screen.findByText('queryVar')).toBeInTheDocument();
+  });
+
+  it('should filter out variables with hide=VariableHide.inControlsMenu', async () => {
+    const variables = [
+      new TextBoxVariable({
+        name: 'textVar1',
+        value: 'test1',
+        hide: VariableHide.inControlsMenu,
+      }),
+      // This should be filtered out
+      new TextBoxVariable({
+        name: 'textVar2',
+        value: 'test2',
+      }),
+      new CustomVariable({
+        name: 'customVar',
+        query: 'option1,option2',
+        hide: VariableHide.inControlsMenu,
+      }),
+    ];
+
+    render(<DashboardControlsButton dashboard={getDashboard(variables)} />);
+
+    // Should still render dropdown since we have variables with hide=VariableHide.inControlsMenu
+    expect(screen.getByRole('button')).toBeInTheDocument();
+
+    // Open the dropdown
+    await userEvent.click(screen.getByRole('button'));
     expect(await screen.findByText('textVar1')).toBeInTheDocument();
     expect(await screen.findByText('customVar')).toBeInTheDocument();
     expect(screen.queryByText('textVar2')).not.toBeInTheDocument();

@@ -5,9 +5,11 @@
 dist_tag="canary"
 registry="http://localhost:4873"
 
-if [ -z "$NPM_TOKEN" ]; then
-  echo "The NPM_TOKEN environment variable does not exist."
-  exit 1
+# Require either ACTIONS_ID_TOKEN_REQUEST_URL or NPM_TOKEN to be set
+if [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && [ -z "$NPM_TOKEN" ]; then
+    echo "ERROR: Either ACTIONS_ID_TOKEN_REQUEST_URL or NPM_TOKEN environment variable must be set."
+    echo "If running in Github Actions, ensure that 'id-token: write' permission is granted."
+    exit 1
 fi
 
 # Parse command line arguments
@@ -33,7 +35,8 @@ done
 
 echo "Starting to release $dist_tag version with NPM version $(npm --version) to registry $registry"
 
-if [[ "$NPM_TOKEN" != "oidc" ]]; then
+if [ -n "$NPM_TOKEN" ]; then
+  echo "Configured NPM_TOKEN in ~/.npmrc"
   registry_without_protocol=${registry#*:}
   echo "$registry_without_protocol/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
 fi
@@ -57,7 +60,7 @@ if (( ${#failed_packages[@]} > 0 )); then
 fi
 
 # Check if any files in packages/grafana-e2e-selectors were changed. If so, add a 'modified' tag to the package
-CHANGES_COUNT=$(git diff HEAD~1..HEAD --name-only -- packages/grafana-e2e-selectors | awk 'END{print NR}')
+CHANGES_COUNT=$(git show --name-only --format= HEAD -- packages/grafana-e2e-selectors | awk 'END{print NR}')
 if (( CHANGES_COUNT > 0 )); then
     # Wait a little bit to allow the package to be published to the registry
     sleep 5s

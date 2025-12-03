@@ -58,6 +58,7 @@ func NewDualWriter(
 
 	// Force using storage only -- regardless of internal synchronization state
 	if mode == grafanarest.Mode5 {
+		builderMetrics.RecordDualWriterModes(gr.Resource, gr.Group, mode, grafanarest.Mode5)
 		return storage, nil
 	}
 
@@ -106,7 +107,7 @@ func NewDualWriter(
 	if currentMode != mode {
 		klog.Warningf("Requested DualWrite mode: %d, but using %d for %+v", mode, currentMode, gr)
 	}
-	return dualwrite.NewDualWriter(gr, currentMode, legacy, storage)
+	return dualwrite.NewStaticStorage(gr, currentMode, legacy, storage)
 }
 
 func getRequestInfo(gr schema.GroupResource, namespaceMapper request.NamespaceMapper) *k8srequest.RequestInfo {

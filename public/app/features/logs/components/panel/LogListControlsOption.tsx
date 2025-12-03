@@ -1,5 +1,5 @@
 import { css } from '@emotion/css';
-import React from 'react';
+import React, { type JSX } from 'react';
 
 import { GrafanaTheme2 } from '@grafana/data';
 import { Dropdown, Icon, IconButton, Tooltip, useStyles2 } from '@grafana/ui';
@@ -69,7 +69,7 @@ export const LogListControlsSelectOption = React.forwardRef<SVGElement, SelectPr
       className: iconButtonClassName,
       name: iconButtonName,
       dropdown,
-      isActive: isActive,
+      isActive,
       customTagText,
       buttonAriaLabel,
       ...iconButtonProps

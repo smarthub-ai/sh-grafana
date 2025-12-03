@@ -9,6 +9,10 @@ import { AccessControlAction } from 'app/types/accessControl';
 import { CombinedRule, RuleIdentifier } from 'app/types/unified-alerting';
 
 import {
+  __clearRuleViewTabsForTests,
+  addEnrichmentSection,
+} from '../../enterprise-components/rule-view-page/extensions';
+import {
   getCloudRule,
   getGrafanaRule,
   getVanillaPromRule,
@@ -30,6 +34,11 @@ import { stringifyIdentifier } from '../../utils/rule-id';
 
 import { AlertRuleProvider } from './RuleContext';
 import RuleViewer, { ActiveTab } from './RuleViewer';
+import { addRulePageEnrichmentSection } from './tabs/extensions/RuleViewerExtension';
+
+jest.mock('@grafana/assistant', () => ({
+  useAssistant: () => ({ isAvailable: false, openAssistant: jest.fn() }),
+}));
 
 // metadata and interactive elements
 const ELEMENTS = {
@@ -84,6 +93,18 @@ const openSilenceDrawer = async () => {
   await user.click(ELEMENTS.actions.more.actions.silence.get());
   await screen.findByText(/Configure silences/i);
 };
+
+beforeAll(() => {
+  // Register the enrichment tab for all tests
+  addEnrichmentSection();
+});
+
+afterEach(() => {
+  // Clear tabs after each test to prevent interference
+  __clearRuleViewTabsForTests();
+  // Re-register for next test
+  addEnrichmentSection();
+});
 
 beforeEach(() => {
   grantPermissionsHelper([
@@ -409,6 +430,107 @@ describe('RuleViewer', () => {
       expect(ELEMENTS.metadata.summary(mockRule.annotations[Annotation.summary]).getAll()).toHaveLength(2);
 
       expect(ELEMENTS.details.pendingPeriod.get()).toHaveTextContent(/15m/i);
+    });
+  });
+
+  describe('Enrichment tab', () => {
+    const mockRule = getGrafanaRule(
+      {
+        name: 'Test alert',
+        uid: 'test-rule-uid',
+        annotations: {
+          [Annotation.summary]: 'This is the summary for the rule',
+        },
+        labels: {
+          team: 'operations',
+          severity: 'low',
+        },
+        group: {
+          name: 'my-group',
+          interval: '15m',
+          rules: [],
+          totals: { alerting: 1 },
+        },
+      },
+      { uid: grafanaRulerRule.grafana_alert.uid }
+    );
+    const mockRuleIdentifier = ruleId.fromCombinedRule('grafana', mockRule);
+
+    beforeEach(() => {
+      grantPermissionsHelper([
+        AccessControlAction.AlertingRuleCreate,
+        AccessControlAction.AlertingRuleRead,
+        AccessControlAction.AlertingRuleUpdate,
+        AccessControlAction.AlertingRuleDelete,
+        AccessControlAction.AlertingInstanceRead,
+        AccessControlAction.AlertingInstanceCreate,
+        AccessControlAction.AlertingInstancesExternalRead,
+        AccessControlAction.AlertingInstancesExternalWrite,
+      ]);
+    });
+
+    it('should pass correct props to enrichment section extension for editable rule', async () => {
+      const mockEnrichmentExtension = jest.fn(() => <div data-testid="enrichment-section">Enrichment Section</div>);
+      addRulePageEnrichmentSection(mockEnrichmentExtension);
+
+      await renderRuleViewer(mockRule, mockRuleIdentifier, ActiveTab.Enrichment);
+
+      expect(mockEnrichmentExtension).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ruleUid: 'test-rule-uid',
+        }),
+        expect.any(Object)
+      );
+      expect(screen.getByTestId('enrichment-section')).toBeInTheDocument();
+    });
+
+    it('should pass correct props to enrichment section extension for read-only rule', async () => {
+      grantPermissionsHelper([
+        AccessControlAction.AlertingRuleRead,
+        AccessControlAction.AlertingInstanceRead,
+        AccessControlAction.AlertingInstancesExternalRead,
+      ]);
+
+      const mockEnrichmentExtension = jest.fn(() => <div data-testid="enrichment-section">Enrichment Section</div>);
+      addRulePageEnrichmentSection(mockEnrichmentExtension);
+
+      await renderRuleViewer(mockRule, mockRuleIdentifier, ActiveTab.Enrichment);
+
+      expect(mockEnrichmentExtension).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ruleUid: 'test-rule-uid',
+        }),
+        expect.any(Object)
+      );
+      expect(screen.getByTestId('enrichment-section')).toBeInTheDocument();
+    });
+
+    it('should show enrichment tab when user has enrichments:read permission', async () => {
+      grantPermissionsHelper([AccessControlAction.AlertingRuleRead, AccessControlAction.AlertingEnrichmentsRead]);
+
+      await renderRuleViewer(mockRule, mockRuleIdentifier, ActiveTab.Query);
+
+      // Check if enrichment tab exists in the navigation
+      expect(screen.getByText('Alert enrichment')).toBeInTheDocument();
+    });
+
+    it('should hide enrichment tab when user lacks enrichments:read permission', async () => {
+      grantPermissionsHelper([AccessControlAction.AlertingRuleRead]);
+
+      await renderRuleViewer(mockRule, mockRuleIdentifier, ActiveTab.Query);
+
+      // Check that enrichment tab does not exist in the navigation
+      expect(screen.queryByText('Alert enrichment')).not.toBeInTheDocument();
+    });
+
+    it('should show enrichment tab for admin users', async () => {
+      grantPermissionsHelper([AccessControlAction.AlertingRuleRead]);
+      jest.spyOn(require('../../utils/misc'), 'isAdmin').mockReturnValue(true);
+
+      await renderRuleViewer(mockRule, mockRuleIdentifier, ActiveTab.Query);
+
+      // Admin should see the tab even without explicit permission
+      expect(screen.getByText('Alert enrichment')).toBeInTheDocument();
     });
   });
 });

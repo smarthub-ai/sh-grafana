@@ -14,6 +14,12 @@ type RepositoryViewList struct {
 	// The UI should force the onboarding workflow when this is true
 	LegacyStorage bool `json:"legacyStorage,omitempty"`
 
+	// The valid targets (can disable instance or folder types)
+	AllowedTargets []SyncTargetType `json:"allowedTargets,omitempty"`
+
+	// Whether image rendering is allowed for dashboard previews
+	AllowImageRendering bool `json:"allowImageRendering"`
+
 	// AvailableRepositoryTypes is the list of repository types supported in this instance (e.g. git, bitbucket, github, etc)
 	AvailableRepositoryTypes []RepositoryType `json:"availableRepositoryTypes,omitempty"`
 
@@ -36,6 +42,12 @@ type RepositoryView struct {
 
 	// For git, this is the target branch
 	Branch string `json:"branch,omitempty"`
+
+	// For git, this is the target URL
+	URL string `json:"url,omitempty"`
+
+	// For git, this is the target path
+	Path string `json:"path,omitempty"`
 
 	// The supported workflows
 	Workflows []Workflow `json:"workflows"`
