@@ -2,6 +2,7 @@ package store
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +13,54 @@ import (
 	pb "github.com/grafana/grafana/pkg/services/ngalert/store/proto/v1"
 )
 
+func TestTruncate(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		maxLen   int
+		expected string
+	}{
+		{
+			name:     "empty string",
+			input:    "",
+			maxLen:   1000,
+			expected: "",
+		},
+		{
+			name:     "short string not truncated",
+			input:    "short error",
+			maxLen:   1000,
+			expected: "short error",
+		},
+		{
+			name:     "string at exact max length not truncated",
+			input:    strings.Repeat("a", 1000),
+			maxLen:   1000,
+			expected: strings.Repeat("a", 1000),
+		},
+		{
+			name:     "long string is truncated with suffix",
+			input:    strings.Repeat("a", 1200),
+			maxLen:   1000,
+			expected: strings.Repeat("a", 1000-len("... (truncated)")) + "... (truncated)",
+		},
+		{
+			name:     "UTF-8 characters are not split",
+			input:    strings.Repeat("🔥", 1200),
+			maxLen:   1000,
+			expected: strings.Repeat("🔥", 1000-len([]rune("... (truncated)"))) + "... (truncated)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := truncate(tt.input, tt.maxLen)
+			require.Equal(t, tt.expected, result)
+			require.LessOrEqual(t, len([]rune(result)), tt.maxLen)
+		})
+	}
+}
+
 func TestAlertInstanceModelToProto(t *testing.T) {
 	currentStateSince := time.Now()
 	currentStateEnd := currentStateSince.Add(time.Minute)
@@ -19,6 +68,7 @@ func TestAlertInstanceModelToProto(t *testing.T) {
 	lastSentAt := currentStateSince.Add(-2 * time.Minute)
 	firedAt := currentStateSince.Add(-2 * time.Minute)
 	resolvedAt := currentStateSince.Add(-3 * time.Minute)
+	annotations := map[string]string{"summary": "value", "team": "alerting"}
 
 	tests := []struct {
 		name     string
@@ -28,34 +78,77 @@ func TestAlertInstanceModelToProto(t *testing.T) {
 		{
 			name: "valid instance",
 			input: models.AlertInstance{
-				Labels: map[string]string{"key": "value"},
+				Labels:      map[string]string{"key": "value"},
+				Annotations: annotations,
 				AlertInstanceKey: models.AlertInstanceKey{
 					RuleUID:    "rule-uid-1",
 					RuleOrgID:  1,
 					LabelsHash: "hash123",
 				},
-				CurrentState:      models.InstanceStateFiring,
-				CurrentStateSince: currentStateSince,
-				CurrentStateEnd:   currentStateEnd,
-				CurrentReason:     "Some reason",
-				LastEvalTime:      lastEvalTime,
-				LastSentAt:        &lastSentAt,
-				FiredAt:           &firedAt,
-				ResolvedAt:        &resolvedAt,
-				ResultFingerprint: "fingerprint",
+				CurrentState:       models.InstanceStateFiring,
+				CurrentStateSince:  currentStateSince,
+				CurrentStateEnd:    currentStateEnd,
+				CurrentReason:      "Some reason",
+				LastEvalTime:       lastEvalTime,
+				LastSentAt:         &lastSentAt,
+				FiredAt:            &firedAt,
+				ResolvedAt:         &resolvedAt,
+				ResultFingerprint:  "fingerprint",
+				EvaluationDuration: 500 * time.Millisecond,
 			},
 			expected: &pb.AlertInstance{
-				Labels:            map[string]string{"key": "value"},
-				LabelsHash:        "hash123",
-				CurrentState:      "Alerting",
-				CurrentStateSince: timestamppb.New(currentStateSince),
-				CurrentStateEnd:   timestamppb.New(currentStateEnd),
-				CurrentReason:     "Some reason",
-				LastEvalTime:      timestamppb.New(lastEvalTime),
-				LastSentAt:        toProtoTimestampPtr(&lastSentAt),
-				FiredAt:           toProtoTimestampPtr(&firedAt),
-				ResolvedAt:        toProtoTimestampPtr(&resolvedAt),
-				ResultFingerprint: "fingerprint",
+				Labels:               map[string]string{"key": "value"},
+				Annotations:          annotations,
+				LabelsHash:           "hash123",
+				CurrentState:         "Alerting",
+				CurrentStateSince:    timestamppb.New(currentStateSince),
+				CurrentStateEnd:      timestamppb.New(currentStateEnd),
+				CurrentReason:        "Some reason",
+				LastEvalTime:         timestamppb.New(lastEvalTime),
+				LastSentAt:           toProtoTimestampPtr(&lastSentAt),
+				FiredAt:              toProtoTimestampPtr(&firedAt),
+				ResolvedAt:           toProtoTimestampPtr(&resolvedAt),
+				ResultFingerprint:    "fingerprint",
+				EvaluationDurationNs: int64(500 * time.Millisecond),
+			},
+		},
+		{
+			name: "long LastError is truncated",
+			input: models.AlertInstance{
+				Labels:      map[string]string{"key": "value"},
+				Annotations: annotations,
+				AlertInstanceKey: models.AlertInstanceKey{
+					RuleUID:    "rule-uid-1",
+					RuleOrgID:  1,
+					LabelsHash: "hash123",
+				},
+				CurrentState:       models.InstanceStateFiring,
+				CurrentStateSince:  currentStateSince,
+				CurrentStateEnd:    currentStateEnd,
+				CurrentReason:      "Some reason",
+				LastEvalTime:       lastEvalTime,
+				LastSentAt:         &lastSentAt,
+				FiredAt:            &firedAt,
+				ResolvedAt:         &resolvedAt,
+				ResultFingerprint:  "fingerprint",
+				EvaluationDuration: 500 * time.Millisecond,
+				LastError:          strings.Repeat("e", 1200),
+			},
+			expected: &pb.AlertInstance{
+				Labels:               map[string]string{"key": "value"},
+				Annotations:          annotations,
+				LabelsHash:           "hash123",
+				CurrentState:         "Alerting",
+				CurrentStateSince:    timestamppb.New(currentStateSince),
+				CurrentStateEnd:      timestamppb.New(currentStateEnd),
+				CurrentReason:        "Some reason",
+				LastEvalTime:         timestamppb.New(lastEvalTime),
+				LastSentAt:           toProtoTimestampPtr(&lastSentAt),
+				FiredAt:              toProtoTimestampPtr(&firedAt),
+				ResolvedAt:           toProtoTimestampPtr(&resolvedAt),
+				ResultFingerprint:    "fingerprint",
+				EvaluationDurationNs: int64(500 * time.Millisecond),
+				LastError:            strings.Repeat("e", maxLastErrorLength-len("... (truncated)")) + "... (truncated)",
 			},
 		},
 	}
@@ -75,6 +168,7 @@ func TestAlertInstanceProtoToModel(t *testing.T) {
 	lastSentAt := currentStateSince.Add(-2 * time.Minute).UTC()
 	firedAt := currentStateSince.Add(-2 * time.Minute).UTC()
 	resolvedAt := currentStateSince.Add(-3 * time.Minute).UTC()
+	annotations := map[string]string{"summary": "value", "team": "alerting"}
 	ruleUID := "rule-uid-1"
 	orgID := int64(1)
 
@@ -86,32 +180,36 @@ func TestAlertInstanceProtoToModel(t *testing.T) {
 		{
 			name: "valid instance",
 			input: &pb.AlertInstance{
-				Labels:            map[string]string{"key": "value"},
-				LabelsHash:        "hash123",
-				CurrentState:      "Alerting",
-				CurrentStateSince: timestamppb.New(currentStateSince),
-				CurrentStateEnd:   timestamppb.New(currentStateEnd),
-				LastEvalTime:      timestamppb.New(lastEvalTime),
-				LastSentAt:        toProtoTimestampPtr(&lastSentAt),
-				FiredAt:           toProtoTimestampPtr(&firedAt),
-				ResolvedAt:        toProtoTimestampPtr(&resolvedAt),
-				ResultFingerprint: "fingerprint",
+				Labels:               map[string]string{"key": "value"},
+				Annotations:          annotations,
+				LabelsHash:           "hash123",
+				CurrentState:         "Alerting",
+				CurrentStateSince:    timestamppb.New(currentStateSince),
+				CurrentStateEnd:      timestamppb.New(currentStateEnd),
+				LastEvalTime:         timestamppb.New(lastEvalTime),
+				LastSentAt:           toProtoTimestampPtr(&lastSentAt),
+				FiredAt:              toProtoTimestampPtr(&firedAt),
+				ResolvedAt:           toProtoTimestampPtr(&resolvedAt),
+				ResultFingerprint:    "fingerprint",
+				EvaluationDurationNs: int64(500 * time.Millisecond),
 			},
 			expected: &models.AlertInstance{
-				Labels: map[string]string{"key": "value"},
+				Labels:      map[string]string{"key": "value"},
+				Annotations: annotations,
 				AlertInstanceKey: models.AlertInstanceKey{
 					RuleUID:    ruleUID,
 					RuleOrgID:  orgID,
 					LabelsHash: "hash123",
 				},
-				CurrentState:      models.InstanceStateFiring,
-				CurrentStateSince: currentStateSince,
-				CurrentStateEnd:   currentStateEnd,
-				LastEvalTime:      lastEvalTime,
-				LastSentAt:        &lastSentAt,
-				FiredAt:           &firedAt,
-				ResolvedAt:        &resolvedAt,
-				ResultFingerprint: "fingerprint",
+				CurrentState:       models.InstanceStateFiring,
+				CurrentStateSince:  currentStateSince,
+				CurrentStateEnd:    currentStateEnd,
+				LastEvalTime:       lastEvalTime,
+				LastSentAt:         &lastSentAt,
+				FiredAt:            &firedAt,
+				ResolvedAt:         &resolvedAt,
+				ResultFingerprint:  "fingerprint",
+				EvaluationDuration: 500 * time.Millisecond,
 			},
 		},
 	}
@@ -132,7 +230,7 @@ func TestModelAlertInstanceMatchesProtobuf(t *testing.T) {
 	// and update them accordingly.
 	t.Run("when AlertInstance model changes", func(t *testing.T) {
 		modelType := reflect.TypeOf(models.AlertInstance{})
-		require.Equal(t, 11, modelType.NumField(), "AlertInstance model has changed, update the protobuf")
+		require.Equal(t, 14, modelType.NumField(), "AlertInstance model has changed, update the protobuf")
 	})
 }
 
@@ -142,6 +240,7 @@ func TestCompressAndDecompressAlertInstances(t *testing.T) {
 	alertInstances := []*pb.AlertInstance{
 		{
 			Labels:            map[string]string{"label-1": "value-1"},
+			Annotations:       map[string]string{"anno-1": "value-1"},
 			LabelsHash:        "hash-1",
 			CurrentState:      "normal",
 			CurrentStateSince: timestamppb.New(now),
@@ -154,6 +253,7 @@ func TestCompressAndDecompressAlertInstances(t *testing.T) {
 		},
 		{
 			Labels:            map[string]string{"label-2": "value-2"},
+			Annotations:       map[string]string{"anno-2": "value-2"},
 			LabelsHash:        "hash-2",
 			CurrentState:      "firing",
 			CurrentStateSince: timestamppb.New(now),
@@ -185,6 +285,7 @@ func TestConvertAndCompressAlertInstances(t *testing.T) {
 				LabelsHash: "hash-1",
 			},
 			Labels:            map[string]string{"label-1": "value-1"},
+			Annotations:       map[string]string{"anno-1": "value-1"},
 			CurrentState:      models.InstanceStateFiring,
 			CurrentStateSince: now,
 			CurrentStateEnd:   now.Add(time.Hour),
@@ -202,6 +303,7 @@ func TestConvertAndCompressAlertInstances(t *testing.T) {
 				LabelsHash: "hash-2",
 			},
 			Labels:            map[string]string{"label-2": "value-2"},
+			Annotations:       map[string]string{"anno-2": "value-2"},
 			CurrentState:      models.InstanceStateNormal,
 			CurrentStateSince: now,
 			CurrentStateEnd:   now.Add(time.Hour),
@@ -227,6 +329,7 @@ func TestConvertAndCompressAlertInstances(t *testing.T) {
 	for i, protoInstance := range decompressedInstances {
 		modelInstance := alertInstanceProtoToModel("rule-uid-1", 1, protoInstance)
 		require.Equal(t, modelInstances[i].Labels, modelInstance.Labels)
+		require.Equal(t, modelInstances[i].Annotations, modelInstance.Annotations)
 		require.Equal(t, modelInstances[i].CurrentState, modelInstance.CurrentState)
 		require.Equal(t, modelInstances[i].LabelsHash, modelInstance.LabelsHash)
 		require.Equal(t, modelInstances[i].ResultFingerprint, modelInstance.ResultFingerprint)

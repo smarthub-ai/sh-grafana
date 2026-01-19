@@ -9,6 +9,8 @@ import (
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	serverstorage "k8s.io/apiserver/pkg/server/storage"
+	"k8s.io/klog/v2"
 	openapi "k8s.io/kube-openapi/pkg/common"
 	"k8s.io/kube-openapi/pkg/spec3"
 	spec "k8s.io/kube-openapi/pkg/validation/spec"
@@ -76,6 +78,7 @@ func addBuilderRoutes(
 	targetGroupVersion schema.GroupVersion,
 	openAPISpec *spec3.OpenAPI,
 	apiGroupBuilders []APIGroupBuilder,
+	apiResourceConfig *serverstorage.ResourceConfig,
 ) (*spec3.OpenAPI, error) {
 	for _, apiGroupBuilder := range apiGroupBuilders {
 		// Optionally include raw http handlers for all builders
@@ -107,12 +110,24 @@ func addBuilderRoutes(
 			}
 		}
 	}
+
+	// filter out api groups that are disabled in APIEnablementOptions
+	for path := range openAPISpec.Paths.Paths {
+		if strings.HasPrefix(path, "/apis/"+targetGroupVersion.String()+"/") {
+			gv := targetGroupVersion.WithResource("")
+			if apiResourceConfig != nil && !apiResourceConfig.ResourceEnabled(gv) {
+				klog.InfoS("removing openapi routes for disabled resource", "gv", gv.String())
+				delete(openAPISpec.Paths.Paths, path)
+			}
+		}
+	}
+
 	return openAPISpec, nil
 }
 
 // Modify the OpenAPI spec to include the additional routes.
 // nolint:gocyclo
-func getOpenAPIPostProcessor(version string, builders []APIGroupBuilder, gvs []schema.GroupVersion) func(*spec3.OpenAPI) (*spec3.OpenAPI, error) {
+func getOpenAPIPostProcessor(version string, builders []APIGroupBuilder, gvs []schema.GroupVersion, apiResourceConfig *serverstorage.ResourceConfig) func(*spec3.OpenAPI) (*spec3.OpenAPI, error) {
 	return func(s *spec3.OpenAPI) (*spec3.OpenAPI, error) {
 		if s.Paths == nil {
 			return s, nil
@@ -160,7 +175,7 @@ func getOpenAPIPostProcessor(version string, builders []APIGroupBuilder, gvs []s
 						}
 					}
 
-					// Replace any */* media types with json+yaml (protobuf?)
+					// Replace any */* media types with json+yaml
 					ops := []*spec3.Operation{v.Delete, v.Put, v.Post}
 					for _, op := range ops {
 						if op == nil || op.RequestBody == nil || len(op.RequestBody.Content) != 1 {
@@ -169,9 +184,8 @@ func getOpenAPIPostProcessor(version string, builders []APIGroupBuilder, gvs []s
 						content, ok := op.RequestBody.Content["*/*"]
 						if ok {
 							op.RequestBody.Content = map[string]*spec3.MediaType{
-								"application/json":                    content,
-								"application/yaml":                    content,
-								"application/vnd.kubernetes.protobuf": content,
+								"application/json": content,
+								"application/yaml": content,
 							}
 						}
 					}
@@ -227,7 +241,40 @@ func getOpenAPIPostProcessor(version string, builders []APIGroupBuilder, gvs []s
 						}
 					}
 				}
-				return addBuilderRoutes(gv, &copy, builders)
+				result, err := addBuilderRoutes(gv, &copy, builders, apiResourceConfig)
+				if err != nil {
+					return nil, err
+				}
+				// Remove protobuf from all paths (including routes added by addBuilderRoutes)
+				for _, path := range result.Paths.Paths {
+					allOps := GetPathOperations(path)
+					for _, op := range allOps {
+						if op == nil {
+							continue
+						}
+						// Remove protobuf from request body content types
+						if op.RequestBody != nil && op.RequestBody.Content != nil {
+							delete(op.RequestBody.Content, "application/vnd.kubernetes.protobuf")
+						}
+						// Remove protobuf from response content types
+						if op.Responses != nil {
+							if op.Responses.StatusCodeResponses != nil {
+								for _, response := range op.Responses.StatusCodeResponses {
+									if response.Content != nil {
+										delete(response.Content, "application/vnd.kubernetes.protobuf")
+										delete(response.Content, "application/vnd.kubernetes.protobuf;stream=watch")
+									}
+								}
+							}
+							// Handle default response
+							if op.Responses.Default != nil && op.Responses.Default.Content != nil {
+								delete(op.Responses.Default.Content, "application/vnd.kubernetes.protobuf")
+								delete(op.Responses.Default.Content, "application/vnd.kubernetes.protobuf;stream=watch")
+							}
+						}
+					}
+				}
+				return result, nil
 			}
 		}
 		return s, nil
