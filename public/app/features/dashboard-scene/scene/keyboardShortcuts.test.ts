@@ -172,6 +172,7 @@ describe('setupKeyboardShortcuts', () => {
 
   describe('other keyboard shortcuts', () => {
     beforeEach(() => {
+      config.featureToggles.newTimeRangeZoomShortcuts = false;
       setupKeyboardShortcuts(mockScene);
     });
 
@@ -209,6 +210,7 @@ describe('setupKeyboardShortcuts', () => {
   describe('edit mode shortcuts', () => {
     beforeEach(() => {
       jest.spyOn(mockScene, 'canEditDashboard').mockReturnValue(true);
+      mockScene.setState({ meta: { ...mockScene.state.meta, canSave: true } });
       setupKeyboardShortcuts(mockScene);
     });
 
