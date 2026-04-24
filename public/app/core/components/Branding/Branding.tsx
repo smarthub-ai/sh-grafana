@@ -59,8 +59,8 @@ export class Branding {
   static LoginBackground = LoginBackground;
   static MenuLogo = MenuLogo;
   static LoginBoxBackground = LoginBoxBackground;
-  static AppTitle = 'Insights';
-  static LoginTitle = 'Welcome to Insights';
+  static AppTitle = 'SmartHub.ai';
+  static LoginTitle = 'Welcome to SmartHub.ai';
   static HideEdition = false;
   static GetLoginSubTitle = (): null | string => {
     return null;

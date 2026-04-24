@@ -45,7 +45,7 @@ RUN if [ $GF_INSTALL_IMAGE_RENDERER_PLUGIN = "true" ]; then \
       fi \
     fi
 
-ARG GF_INSTALL_PLUGINS="volkovlabs-echarts-panel,nikosc-percenttrend-panel,briangann-datatable-panel"
+ARG GF_INSTALL_PLUGINS=""
 
 RUN if [ ! -z "${GF_INSTALL_PLUGINS}" ]; then \
       OLDIFS=$IFS; \
