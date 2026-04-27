@@ -99,7 +99,10 @@ export const sharedDependenciesMap = {
   moment: () => import('moment').then((module) => ({ ...module, __useDefault: true })),
   prismjs: () => import('prismjs'),
   react: () => import('react'),
+  'react/jsx-runtime': () => import('react/jsx-runtime'),
+  'react/jsx-dev-runtime': () => import('react/jsx-dev-runtime'),
   'react-dom': () => import('react-dom'),
+  'react-dom/client': () => import('react-dom/client'),
   // bundling grafana-ui in plugins requires sharing react-inlinesvg for the icon cache
   'react-inlinesvg': () => import('react-inlinesvg'),
   'react-redux': () => import('react-redux'),
