@@ -28,6 +28,7 @@ const getStyles = (theme: GrafanaTheme2) => {
       display: 'flex',
       height: TOP_BAR_LEVEL_HEIGHT,
       padding: theme.spacing(0, 1, 0, 2),
+      flex: 1,
     }),
   };
 };
