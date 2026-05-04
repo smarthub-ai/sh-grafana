@@ -84,7 +84,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.18.0 // @grafana/grafana-backend-group
 	github.com/gorilla/mux v1.8.1 // @grafana/grafana-backend-group
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // @grafana/grafana-app-platform-squad
-	github.com/grafana/alerting v0.0.0-20260330164719-5946ccd00861 // @grafana/alerting-backend
+	github.com/grafana/alerting v0.0.0-release-12.4.3 // @grafana/alerting-backend
 	github.com/grafana/authlib v0.0.0-20260316143530-e1d123886039 // @grafana/identity-access-team
 	github.com/grafana/authlib/types v0.0.0-20260316143530-e1d123886039 // @grafana/identity-access-team
 	github.com/grafana/dataplane/examples v0.0.1 // @grafana/observability-metrics
@@ -468,7 +468,6 @@ require (
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.14 // indirect
-	github.com/gophercloud/gophercloud/v2 v2.11.1 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/grafana/jsonparser v0.0.0-20241004153430-023329977675 // indirect
 	github.com/grafana/nanogit v0.13.0 // indirect
@@ -698,7 +697,10 @@ require (
 	software.sslmate.com/src/go-pkcs12 v0.7.0 // indirect
 )
 
-require github.com/gomodule/redigo v1.8.9 // indirect
+require (
+	github.com/gomodule/redigo v1.8.9 // indirect
+	github.com/prometheus/client_golang/exp v0.0.0-20260325093428-d8591d0db856 // indirect
+)
 
 replace (
 	// Use fork of crewjam/saml with fixes for some issues until changes get merged into upstream
