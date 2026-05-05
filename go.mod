@@ -4,11 +4,11 @@ go 1.25.9
 
 // Direct requirements -- every entry needs an owner
 require (
-	buf.build/gen/go/parca-dev/parca/connectrpc/go v1.18.1-20250703125925-3f0fcf4bff96.1 // @grafana/data-sources-plugins
-	buf.build/gen/go/parca-dev/parca/protocolbuffers/go v1.36.2-20250703125925-3f0fcf4bff96.1 // @grafana/data-sources-plugins
+	buf.build/gen/go/parca-dev/parca/connectrpc/go v1.19.2-20260413103946-e19e4fde69b5.1 // @grafana/data-sources-plugins
+	buf.build/gen/go/parca-dev/parca/protocolbuffers/go v1.36.11-20260413103946-e19e4fde69b5.1 // @grafana/data-sources-plugins
 	cloud.google.com/go/kms v1.25.0 // @grafana/grafana-backend-group
 	cloud.google.com/go/storage v1.57.0 // @grafana/grafana-backend-group
-	connectrpc.com/connect v1.19.1 // @grafana/data-sources-plugins
+	connectrpc.com/connect v1.19.2 // @grafana/data-sources-plugins
 	dario.cat/mergo v1.0.2 // @grafana/grafana-app-platform-squad
 	filippo.io/age v1.2.1 // @grafana/identity-access-team
 	github.com/1NCE-GmbH/grpc-go-pool v0.0.0-20231117122434-2a5bb974daa2 // @grafana/grafana-search-and-storage
@@ -468,7 +468,6 @@ require (
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.14 // indirect
-	github.com/gophercloud/gophercloud/v2 v2.11.1 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/grafana/jsonparser v0.0.0-20241004153430-023329977675 // indirect
 	github.com/grafana/nanogit v0.13.0 // indirect
@@ -698,7 +697,10 @@ require (
 	software.sslmate.com/src/go-pkcs12 v0.7.0 // indirect
 )
 
-require github.com/gomodule/redigo v1.8.9 // indirect
+require (
+	github.com/gomodule/redigo v1.8.9 // indirect
+	github.com/prometheus/client_golang/exp v0.0.0-20260325093428-d8591d0db856 // indirect
+)
 
 replace (
 	// Use fork of crewjam/saml with fixes for some issues until changes get merged into upstream
