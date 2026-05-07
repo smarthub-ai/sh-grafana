@@ -104,7 +104,7 @@ require (
 	github.com/grafana/grafana-plugin-sdk-go v0.291.0 // @grafana/plugins-platform-backend
 	github.com/grafana/loki/pkg/push v0.0.0-20250823105456-332df2b20000 // @grafana/alerting-backend
 	github.com/grafana/loki/v3 v3.6.4 // @grafana/observability-logs
-	github.com/grafana/nanogit/gittest v0.10.2 // @grafana/grafana-git-ui-sync-team
+	github.com/grafana/nanogit/gittest v0.17.0 // @grafana/grafana-git-ui-sync-team
 	github.com/grafana/otel-profiling-go v0.5.1 // @grafana/grafana-backend-group
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.9 // @grafana/data-sources-plugins
 	github.com/grafana/pyroscope/api v1.2.1-0.20251202111406-6c67b876b686 // @grafana/data-sources-plugins
@@ -168,7 +168,7 @@ require (
 	github.com/spf13/pflag v1.0.10 // @grafana-app-platform-squad
 	github.com/spyzhov/ajson v0.9.6 // @grafana/grafana-sharing-squad
 	github.com/stretchr/testify v1.11.1 // @grafana/grafana-backend-group
-	github.com/testcontainers/testcontainers-go v0.40.0 //@grafana/grafana-app-platform-squad
+	github.com/testcontainers/testcontainers-go v0.41.0 //@grafana/grafana-app-platform-squad
 	github.com/thomaspoignant/go-feature-flag v1.42.0 // @grafana/grafana-backend-group
 	github.com/tjhop/slog-gokit v0.1.6 // @grafana/grafana-app-platform-squad
 	github.com/ua-parser/uap-go v0.0.0-20250213224047-9c035f085b90 // @grafana/grafana-backend-group
@@ -418,7 +418,7 @@ require (
 	github.com/dolthub/flatbuffers/v23 v23.3.3-dh.2 // indirect
 	github.com/dolthub/jsonpath v0.0.2-0.20240227200619-19675ab05c71 // indirect
 	github.com/dolthub/maphash v0.1.0 // indirect
-	github.com/ebitengine/purego v0.9.0 // indirect
+	github.com/ebitengine/purego v0.10.0 // indirect
 	github.com/edsrzf/mmap-go v1.2.0 // indirect
 	github.com/elazarl/goproxy v1.8.2 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
@@ -468,10 +468,9 @@ require (
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.14 // indirect
-	github.com/gophercloud/gophercloud/v2 v2.11.1 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/grafana/jsonparser v0.0.0-20241004153430-023329977675 // indirect
-	github.com/grafana/nanogit v0.13.0 // indirect
+	github.com/grafana/nanogit v1.0.0 // indirect
 	github.com/grafana/regexp v0.0.0-20250905093917-f7b3be9d1853 // indirect
 	github.com/grafana/sqlds/v5 v5.0.4 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20191002090509-6af20e3a5340 // indirect
@@ -552,7 +551,7 @@ require (
 	github.com/mithrandie/go-text v1.6.0 // indirect
 	github.com/mithrandie/ternary v1.1.1 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
-	github.com/moby/go-archive v0.1.0 // indirect
+	github.com/moby/go-archive v0.2.0 // indirect
 	github.com/moby/patternmatcher v0.6.0 // indirect
 	github.com/moby/spdystream v0.5.1 // indirect
 	github.com/moby/sys/sequential v0.6.0 // indirect
@@ -611,7 +610,7 @@ require (
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect
 	github.com/shadowspore/fossil-delta v0.0.0-20241213113458-1d797d70cbe3 // indirect
-	github.com/shirou/gopsutil/v4 v4.25.9 // indirect
+	github.com/shirou/gopsutil/v4 v4.26.2 // indirect
 	github.com/shurcooL/httpfs v0.0.0-20230704072500-f1e31cf0ba5c // indirect
 	github.com/shurcooL/vfsgen v0.0.0-20230704071429-0000e147ea92 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
@@ -623,8 +622,8 @@ require (
 	github.com/spiffe/go-spiffe/v2 v2.6.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
-	github.com/tklauser/go-sysconf v0.3.15 // indirect
-	github.com/tklauser/numcpus v0.10.0 // indirect
+	github.com/tklauser/go-sysconf v0.3.16 // indirect
+	github.com/tklauser/numcpus v0.11.0 // indirect
 	github.com/uber/jaeger-client-go v2.30.0+incompatible // indirect
 	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
 	github.com/unknwon/bra v0.0.0-20200517080246-1e3013ecaff8 // indirect
@@ -698,7 +697,10 @@ require (
 	software.sslmate.com/src/go-pkcs12 v0.7.0 // indirect
 )
 
-require github.com/gomodule/redigo v1.8.9 // indirect
+require (
+	github.com/gomodule/redigo v1.8.9 // indirect
+	github.com/prometheus/client_golang/exp v0.0.0-20260325093428-d8591d0db856 // indirect
+)
 
 replace (
 	// Use fork of crewjam/saml with fixes for some issues until changes get merged into upstream
