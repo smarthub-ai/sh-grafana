@@ -8,7 +8,7 @@ import { selectors } from '@grafana/e2e-selectors';
 
 import { useStyles2 } from '../../../themes';
 import { t, Trans } from '../../../utils/i18n';
-import { Button } from '../../Button';
+// import { Button } from '../../Button';
 import { Combobox } from '../../Combobox/Combobox';
 import { Field } from '../../Forms/Field';
 import { Tab, TabContent, TabsBar } from '../../Tabs';
@@ -77,18 +77,6 @@ export const TimePickerFooter = (props: Props) => {
           </div>
           <TimeZoneOffset timeZone={timeZone} timestamp={timestamp} />
         </div>
-        <div className={style.spacer} />
-        <Button
-          data-testid={selectors.components.TimeZonePicker.changeTimeSettingsButton}
-          variant="secondary"
-          onClick={onToggleChangeTimeSettings}
-          size="sm"
-          aria-expanded={isEditing}
-          aria-controls={timeSettingsId}
-          icon={isEditing ? 'angle-up' : 'angle-down'}
-        >
-          <Trans i18nKey="time-picker.footer.change-settings-button">Change time settings</Trans>
-        </Button>
       </section>
       {isEditing ? (
         <div className={style.editContainer} id={timeSettingsId}>

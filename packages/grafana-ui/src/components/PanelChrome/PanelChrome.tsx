@@ -198,6 +198,10 @@ export function PanelChrome({
 
   const headerContent = (
     <>
+      <div className={cx(styles.titleItems, dragClassCancel)} data-testid="title-items-container">
+        <PanelDescription description={description} className={dragClassCancel} />
+        {titleItems}
+      </div>
       {/* Non collapsible title */}
       {!collapsible && title && (
         <div className={styles.title}>
@@ -242,10 +246,6 @@ export function PanelChrome({
         </div>
       )}
 
-      <div className={cx(styles.titleItems, dragClassCancel)} data-testid="title-items-container">
-        <PanelDescription description={description} className={dragClassCancel} />
-        {titleItems}
-      </div>
       {loadingState === LoadingState.Streaming && (
         <Tooltip content={onCancelQuery ? 'Stop streaming' : 'Streaming'}>
           <TitleItem className={dragClassCancel} data-testid="panel-streaming" onClick={onCancelQuery}>
@@ -523,6 +523,8 @@ const getStyles = (theme: GrafanaTheme2) => {
       '& > h2': {
         minWidth: 0,
       },
+      flex: 1,
+      justifyContent: 'center'
     }),
     items: css({
       display: 'flex',
