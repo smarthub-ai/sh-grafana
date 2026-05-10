@@ -168,7 +168,7 @@ const NarrowScreenForm = (props: FormProps) => {
           </div>
           {showHistory && (
             <TimeRangeList
-              title={t('time-picker.absolute.recent-title', 'Recently used absolute ranges')}
+              title={t('time-picker.absolute.recent-title', '')}
               options={historyOptions}
               onChange={onChangeTimeOption}
               placeholderEmpty={null}
@@ -209,10 +209,10 @@ const FullScreenForm = (props: FormProps) => {
       {props.showHistory && (
         <div className={styles.recent}>
           <TimeRangeList
-            title={t('time-picker.absolute.recent-title', 'Recently used absolute ranges')}
+            title={t('time-picker.absolute.recent-title', '')}
             options={historyOptions || []}
             onChange={onChangeTimeOption}
-            placeholderEmpty={<EmptyRecentList />}
+            placeholderEmpty={null}
           />
         </div>
       )}

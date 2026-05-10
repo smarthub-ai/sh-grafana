@@ -52,7 +52,7 @@ ARG COMMIT_SHA=""
 ARG BUILD_BRANCH=""
 ARG GO_BUILD_TAGS="oss"
 ARG WIRE_TAGS="oss"
-ARG BINGO="true"
+ARG BINGO="false"
 
 RUN if grep -i -q alpine /etc/issue; then \
       apk add --no-cache \
@@ -91,8 +91,8 @@ COPY pkg/plugins/codegen pkg/plugins/codegen
 
 RUN go mod download
 RUN if [[ "$BINGO" = "true" ]]; then \
-      go install github.com/bwplotka/bingo@latest && \
-      bingo get -v; \
+      go install github.com/bwplotka/bingo@v0.9.0 && \
+      $(go env GOPATH)/bin/bingo get -v; \
     fi
 
 COPY embed.go Makefile build.go package.json ./
@@ -143,7 +143,9 @@ ENV PATH="/usr/share/grafana/bin:$PATH" \
     GF_PATHS_HOME="/usr/share/grafana" \
     GF_PATHS_LOGS="/var/log/grafana" \
     GF_PATHS_PLUGINS="/var/lib/grafana/plugins" \
-    GF_PATHS_PROVISIONING="/etc/grafana/provisioning"
+    GF_PATHS_PROVISIONING="/etc/grafana/provisioning" \
+    GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS="nikosc-percenttrend-panel,briangann-datatable-panel" \
+    GF_INSTALL_PLUGINS="volkovlabs-echarts-panel,nikosc-percenttrend-panel,briangann-datatable-panel"
 
 WORKDIR $GF_PATHS_HOME
 
