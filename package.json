@@ -468,7 +468,7 @@
     "swagger-ui-react/dompurify": "3.4.0",
     "protobufjs@npm:8.0.0": "8.0.1",
     "protobufjs@npm:^7.2.5": "7.5.5",
-    "hono@npm:^4.11.4": "4.12.14",
+    "hono@npm:^4.11.4": "4.12.18",
     "protocol-buffers-schema@npm:^3.3.1": "3.6.1",
     "uuid@npm:^13.0.0": "14.0.0",
     "uuid@npm:*": "14.0.0",
@@ -480,7 +480,10 @@
     "js-yaml@npm:4.1.0": "^4.1.0",
     "js-yaml@npm:=4.1.0": "^4.1.0",
     "nodemailer": "7.0.12",
-    "@storybook/core@npm:8.6.18": "patch:@storybook/core@npm%3A8.6.18#~/.yarn/patches/@storybook-core-npm-8.6.18-cff02a3017.patch"
+    "@storybook/core@npm:8.6.18": "patch:@storybook/core@npm%3A8.6.18#~/.yarn/patches/@storybook-core-npm-8.6.18-cff02a3017.patch",
+    "fast-uri": "3.1.2",
+    "ip-address": "10.1.1",
+    "@babel/plugin-transform-modules-systemjs": "7.29.4"
   },
   "workspaces": {
     "packages": [
