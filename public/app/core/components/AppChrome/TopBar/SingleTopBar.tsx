@@ -50,13 +50,23 @@ export const SingleTopBar = memo(function SingleTopBar({
   const enrichedHelpNode = helpNode ? enrichHelpItem(helpNode) : undefined;
   const profileNode = navIndex['profile'];
   const homeNav = useSelector((state) => state.navIndex)[HOME_NAV_ID];
-  const breadcrumbs = buildBreadcrumbs(sectionNav, pageNav, homeNav, true);
+  let breadcrumbs = buildBreadcrumbs(sectionNav, pageNav, homeNav, true);
+  if (!contextSrv.isEditor) {
+    // const dashboardsTitle = t('nav.dashboards.title', 'Dashboards');
+    // breadcrumbs = breadcrumbs.filter(
+    //   (crumb) =>
+    //     crumb.text !== dashboardsTitle &&
+    //     !crumb.href.endsWith('/dashboards') &&
+    //     !crumb.href.includes('/dashboards?')
+    // );
+    breadcrumbs = [breadcrumbs[breadcrumbs.length - 1]]
+  }
   const unifiedHistoryEnabled = config.featureToggles.unifiedHistory;
 
   return (
     <div className={styles.layout}>
       <Stack minWidth={0} gap={0.5} alignItems="center">
-        {!menuDockedAndOpen && (
+        {!menuDockedAndOpen && contextSrv.isEditor && (
           <ToolbarButton
             narrow
             id={MEGA_MENU_TOGGLE_ID}

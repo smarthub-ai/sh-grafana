@@ -11,6 +11,7 @@ import { HOME_NAV_ID } from 'app/core/reducers/navModel';
 import { getGrafanaSearcher } from 'app/features/search/service/searcher';
 import { DashboardQueryResult, QueryResponse } from 'app/features/search/service/types';
 
+import { contextSrv } from 'app/core/core';
 import { Page } from '../Page/Page';
 
 import { AppChrome } from './AppChrome';
@@ -81,6 +82,10 @@ describe('AppChrome', () => {
     jest.spyOn(getGrafanaSearcher(), 'search').mockResolvedValue(mockSearchResult);
   });
 
+  beforeEach(() => {
+    contextSrv.isEditor = true;
+  });
+
   afterEach(() => {
     jest.clearAllMocks();
   });
@@ -108,6 +113,84 @@ describe('AppChrome', () => {
     });
     waitFor(() => {
       expect(screen.queryByRole('link', { name: 'Skip to main content' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('when user has Viewer permission', () => {
+    beforeEach(() => {
+      contextSrv.isEditor = false;
+    });
+
+    it('should not render the Open menu button', () => {
+      setup(<Page navId="child1">Children</Page>);
+      expect(screen.queryByRole('button', { name: 'Open menu' })).not.toBeInTheDocument();
+    });
+
+    it('should filter out the Dashboards breadcrumb', () => {
+      config.bootData.navTree = [
+        {
+          id: HOME_NAV_ID,
+          text: 'Home',
+        },
+        {
+          text: 'Dashboards',
+          id: 'dashboards',
+          url: '/dashboards',
+          children: [
+            { text: 'My Dashboard', id: 'my-dashboard', url: '/dashboards/my-dashboard' },
+          ],
+        },
+      ];
+      render(
+        <KBarProvider>
+          <TestProvider grafanaContext={getGrafanaContextMock()}>
+            <AppChrome>
+              <Page navId="my-dashboard">Children</Page>
+            </AppChrome>
+          </TestProvider>
+        </KBarProvider>
+      );
+      expect(screen.queryByRole('link', { name: 'Dashboards' })).not.toBeInTheDocument();
+      expect(screen.getAllByText('My Dashboard')[0]).toBeInTheDocument();
+    });
+  });
+
+  describe('when user has Editor/Admin permission', () => {
+    beforeEach(() => {
+      contextSrv.isEditor = true;
+    });
+
+    it('should render the Open menu button', () => {
+      setup(<Page navId="child1">Children</Page>);
+      expect(screen.getByRole('button', { name: 'Open menu' })).toBeInTheDocument();
+    });
+
+    it('should show the Dashboards breadcrumb', () => {
+      config.bootData.navTree = [
+        {
+          id: HOME_NAV_ID,
+          text: 'Home',
+        },
+        {
+          text: 'Dashboards',
+          id: 'dashboards',
+          url: '/dashboards',
+          children: [
+            { text: 'My Dashboard', id: 'my-dashboard', url: '/dashboards/my-dashboard' },
+          ],
+        },
+      ];
+      render(
+        <KBarProvider>
+          <TestProvider grafanaContext={getGrafanaContextMock()}>
+            <AppChrome>
+              <Page navId="my-dashboard">Children</Page>
+            </AppChrome>
+          </TestProvider>
+        </KBarProvider>
+      );
+      expect(screen.getByRole('link', { name: 'Dashboards' })).toBeInTheDocument();
+      expect(screen.getAllByText('My Dashboard')[0]).toBeInTheDocument();
     });
   });
 });
