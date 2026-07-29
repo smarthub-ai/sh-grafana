@@ -79,6 +79,14 @@ export const SingleTopBar = memo(function SingleTopBar({
             </Stack>
           </ToolbarButton>
         )}
+        {contextSrv.isEditor ? null : 
+        <div style={{marginRight: '1rem', marginLeft: '-.5rem'}}>
+          <Stack>
+            <Branding.MenuLogo className={styles.img} /> 
+            <span>{Branding.AppTitle}</span>
+          </Stack>  
+        </div>
+         }
         <Breadcrumbs breadcrumbs={breadcrumbs} className={styles.breadcrumbsWrapper} />
       </Stack>
       <Stack minWidth={0} gap={0.5} alignItems="center" flex={1}>
