@@ -148,6 +148,14 @@ func (hs *HTTPServer) LoginView(c *contextmodel.ReqContext) {
 			return
 		}
 
+		redirectTo := c.Req.FormValue("redirectTo")
+		if redirectTo != "" {
+			if sanitized, err := hs.ValidateRedirectTo(hs.Cfg.AppSubURL + redirectTo); err == nil {
+				c.Redirect(sanitized)
+				return
+			}
+		}
+
 		c.Redirect(hs.Cfg.AppSubURL + "/")
 		return
 	}
