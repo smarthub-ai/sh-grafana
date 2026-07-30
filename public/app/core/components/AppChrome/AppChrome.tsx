@@ -18,7 +18,7 @@ import { MegaMenu, MENU_WIDTH } from './MegaMenu/MegaMenu';
 import { useMegaMenuFocusHelper } from './MegaMenu/utils';
 import { ReturnToPrevious } from './ReturnToPrevious/ReturnToPrevious';
 import { SingleTopBar } from './TopBar/SingleTopBar';
-import { SingleTopBarActions } from './TopBar/SingleTopBarActions';
+// import { SingleTopBarActions } from './TopBar/SingleTopBarActions';
 import { TOP_BAR_LEVEL_HEIGHT } from './types';
 
 export interface Props extends PropsWithChildren<{}> {}
@@ -101,7 +101,7 @@ export function AppChrome({ children }: Props) {
               onToggleMegaMenu={handleMegaMenu}
               onToggleKioskMode={chrome.onToggleKioskMode}
             />
-            {state.actions && <SingleTopBarActions>{state.actions}</SingleTopBarActions>}
+            {/* {state.actions && <SingleTopBarActions>{state.actions}</SingleTopBarActions>} */}
           </header>
         </>
       )}
@@ -141,7 +141,7 @@ const getStyles = (theme: GrafanaTheme2, hasActions: boolean) => {
     content: css({
       display: 'flex',
       flexDirection: 'column',
-      paddingTop: hasActions ? TOP_BAR_LEVEL_HEIGHT * 2 : TOP_BAR_LEVEL_HEIGHT,
+      paddingTop: TOP_BAR_LEVEL_HEIGHT,
       flexGrow: 1,
       height: 'auto',
     }),

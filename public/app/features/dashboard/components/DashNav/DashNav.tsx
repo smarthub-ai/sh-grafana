@@ -23,11 +23,11 @@ import { useAppNotification } from 'app/core/copy/appNotification';
 import { appEvents } from 'app/core/core';
 import { useBusEvent } from 'app/core/hooks/useBusEvent';
 import { t, Trans } from 'app/core/internationalization';
-import { ID_PREFIX, setStarred } from 'app/core/reducers/navBarTree';
+import { setStarred } from 'app/core/reducers/navBarTree';
 import { removeNavIndex } from 'app/core/reducers/navModel';
 import AddPanelButton from 'app/features/dashboard/components/AddPanelButton/AddPanelButton';
 import { SaveDashboardDrawer } from 'app/features/dashboard/components/SaveDashboard/SaveDashboardDrawer';
-import { getDashboardSrv } from 'app/features/dashboard/services/DashboardSrv';
+// import { getDashboardSrv } from 'app/features/dashboard/services/DashboardSrv';
 import { DashboardModel } from 'app/features/dashboard/state/DashboardModel';
 import { DashboardInteractions } from 'app/features/dashboard-scene/utils/interactions';
 import { playlistSrv } from 'app/features/playlist/PlaylistSrv';
@@ -126,33 +126,33 @@ export const DashNav = memo<Props>((props) => {
     }
   };
 
-  const onStarDashboard = () => {
-    DashboardInteractions.toolbarFavoritesClick();
-    const dashboardSrv = getDashboardSrv();
-    const { dashboard, navIndex, removeNavIndex, setStarred, updateNavIndex } = props;
+  // const onStarDashboard = () => {
+  //   DashboardInteractions.toolbarFavoritesClick();
+  //   const dashboardSrv = getDashboardSrv();
+  //   const { dashboard, navIndex, removeNavIndex, setStarred, updateNavIndex } = props;
 
-    dashboardSrv.starDashboard(dashboard.uid, Boolean(dashboard.meta.isStarred)).then((newState) => {
-      setStarred({ id: dashboard.uid, title: dashboard.title, url: dashboard.meta.url ?? '', isStarred: newState });
-      const starredNavItem = navIndex['starred'];
-      if (newState) {
-        starredNavItem.children?.push({
-          id: ID_PREFIX + dashboard.uid,
-          text: dashboard.title,
-          url: dashboard.meta.url ?? '',
-          parentItem: starredNavItem,
-        });
-      } else {
-        removeNavIndex(ID_PREFIX + dashboard.uid);
-        const indexToRemove = starredNavItem.children?.findIndex((element) => element.id === ID_PREFIX + dashboard.uid);
-        if (indexToRemove) {
-          starredNavItem.children?.splice(indexToRemove, 1);
-        }
-      }
-      updateNavIndex(starredNavItem);
-      dashboard.meta.isStarred = newState;
-      forceUpdate();
-    });
-  };
+  //   dashboardSrv.starDashboard(dashboard.uid, Boolean(dashboard.meta.isStarred)).then((newState) => {
+  //     setStarred({ id: dashboard.uid, title: dashboard.title, url: dashboard.meta.url ?? '', isStarred: newState });
+  //     const starredNavItem = navIndex['starred'];
+  //     if (newState) {
+  //       starredNavItem.children?.push({
+  //         id: ID_PREFIX + dashboard.uid,
+  //         text: dashboard.title,
+  //         url: dashboard.meta.url ?? '',
+  //         parentItem: starredNavItem,
+  //       });
+  //     } else {
+  //       removeNavIndex(ID_PREFIX + dashboard.uid);
+  //       const indexToRemove = starredNavItem.children?.findIndex((element) => element.id === ID_PREFIX + dashboard.uid);
+  //       if (indexToRemove) {
+  //         starredNavItem.children?.splice(indexToRemove, 1);
+  //       }
+  //     }
+  //     updateNavIndex(starredNavItem);
+  //     dashboard.meta.isStarred = newState;
+  //     forceUpdate();
+  //   });
+  // };
 
   const onOpenSettings = () => {
     DashboardInteractions.toolbarSettingsClick();
@@ -188,28 +188,28 @@ export const DashNav = memo<Props>((props) => {
     const isDevEnv = config.buildInfo.env === 'development';
 
     const { dashboard, kioskMode } = props;
-    const { canStar, isStarred } = dashboard.meta;
+    // const { canStar, isStarred } = dashboard.meta;
     const buttons: ReactNode[] = [];
 
     if (kioskMode || isPlaylistRunning()) {
       return [];
     }
 
-    if (canStar) {
-      let desc = isStarred
-        ? t('dashboard.toolbar.unmark-favorite', 'Unmark as favorite')
-        : t('dashboard.toolbar.mark-favorite', 'Mark as favorite');
-      buttons.push(
-        <DashNavButton
-          tooltip={desc}
-          icon={isStarred ? 'favorite' : 'star'}
-          iconType={isStarred ? 'mono' : 'default'}
-          iconSize="lg"
-          onClick={onStarDashboard}
-          key="button-star"
-        />
-      );
-    }
+    // if (canStar) {
+    //   let desc = isStarred
+    //     ? t('dashboard.toolbar.unmark-favorite', 'Unmark as favorite')
+    //     : t('dashboard.toolbar.mark-favorite', 'Mark as favorite');
+    //   buttons.push(
+    //     <DashNavButton
+    //       tooltip={desc}
+    //       icon={isStarred ? 'favorite' : 'star'}
+    //       iconType={isStarred ? 'mono' : 'default'}
+    //       iconSize="lg"
+    //       onClick={onStarDashboard}
+    //       key="button-star"
+    //     />
+    //   );
+    // }
 
     if (dashboard.meta.publicDashboardEnabled) {
       // TODO: This will be replaced with the new badge component. Color is required but gets override by css

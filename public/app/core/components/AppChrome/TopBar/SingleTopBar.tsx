@@ -22,8 +22,8 @@ import { TOP_BAR_LEVEL_HEIGHT } from '../types';
 import { InviteUserButton } from './InviteUserButton';
 import { ProfileButton } from './ProfileButton';
 import { SignInLink } from './SignInLink';
+import { SingleTopBarActions } from './SingleTopBarActions';
 import { TopNavBarMenu } from './TopNavBarMenu';
-import { TopSearchBarCommandPaletteTrigger } from './TopSearchBarCommandPaletteTrigger';
 
 export const MEGA_MENU_TOGGLE_ID = 'mega-menu-toggle';
 
@@ -50,13 +50,23 @@ export const SingleTopBar = memo(function SingleTopBar({
   const enrichedHelpNode = helpNode ? enrichHelpItem(helpNode) : undefined;
   const profileNode = navIndex['profile'];
   const homeNav = useSelector((state) => state.navIndex)[HOME_NAV_ID];
-  const breadcrumbs = buildBreadcrumbs(sectionNav, pageNav, homeNav);
+  let breadcrumbs = buildBreadcrumbs(sectionNav, pageNav, homeNav, true);
+  if (!contextSrv.isEditor) {
+    // const dashboardsTitle = t('nav.dashboards.title', 'Dashboards');
+    // breadcrumbs = breadcrumbs.filter(
+    //   (crumb) =>
+    //     crumb.text !== dashboardsTitle &&
+    //     !crumb.href.endsWith('/dashboards') &&
+    //     !crumb.href.includes('/dashboards?')
+    // );
+    breadcrumbs = [breadcrumbs[breadcrumbs.length - 1]]
+  }
   const unifiedHistoryEnabled = config.featureToggles.unifiedHistory;
 
   return (
     <div className={styles.layout}>
       <Stack minWidth={0} gap={0.5} alignItems="center">
-        {!menuDockedAndOpen && (
+        {!menuDockedAndOpen && contextSrv.isEditor && (
           <ToolbarButton
             narrow
             id={MEGA_MENU_TOGGLE_ID}
@@ -69,11 +79,21 @@ export const SingleTopBar = memo(function SingleTopBar({
             </Stack>
           </ToolbarButton>
         )}
+        {contextSrv.isEditor ? null : 
+        <div style={{marginRight: '1rem', marginLeft: '-.5rem'}}>
+          <Stack>
+            <Branding.MenuLogo className={styles.img} /> 
+            <span>{Branding.AppTitle}</span>
+          </Stack>  
+        </div>
+         }
         <Breadcrumbs breadcrumbs={breadcrumbs} className={styles.breadcrumbsWrapper} />
       </Stack>
-
-      <Stack gap={0.5} alignItems="center">
-        <TopSearchBarCommandPaletteTrigger />
+      <Stack minWidth={0} gap={0.5} alignItems="center" flex={1}>
+        {state.actions && <SingleTopBarActions>{state.actions}</SingleTopBarActions>}
+      </Stack>
+      <Stack gap={0.5} alignItems="center" justifyContent="flex-end">
+        {/* <TopSearchBarCommandPaletteTrigger /> */}
         {unifiedHistoryEnabled && <HistoryContainer />}
         <QuickAdd />
         {enrichedHelpNode && (
@@ -107,8 +127,8 @@ const getStyles = (theme: GrafanaTheme2, menuDockedAndOpen: boolean) => ({
     justifyContent: 'space-between',
 
     [theme.breakpoints.up('lg')]: {
-      gridTemplateColumns: '2fr minmax(550px, 1fr)',
-      display: 'grid',
+      // gridTemplateColumns: '2fr minmax(550px, 1fr)',
+      // display: 'grid',
       justifyContent: 'flex-start',
     },
   }),
