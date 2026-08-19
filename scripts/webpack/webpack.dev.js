@@ -99,7 +99,7 @@ module.exports = (env = {}) => {
     // enable persistent cache for faster cold starts
     cache: {
       type: 'filesystem',
-      name: 'grafana-default-development',
+      name: 'grafana-default-development' + ((process.env.FUTURE === 'true' || process.env.FUTURE === '1' || process.env.future === 'true' || process.env.future === '1') ? '-future' : ''),
       buildDependencies: {
         config: [__filename],
       },
@@ -142,9 +142,21 @@ module.exports = (env = {}) => {
         filename: 'grafana.[name].[contenthash].css',
       }),
       new DefinePlugin({
-        'process.env': {
-          NODE_ENV: JSON.stringify('development'),
-        },
+        'process.env.NODE_ENV': JSON.stringify('development'),
+        'process.env.FUTURE': JSON.stringify(
+          process.env.FUTURE === 'true' ||
+            process.env.FUTURE === '1' ||
+            process.env.future === 'true' ||
+            process.env.future === '1' ||
+            process.argv.includes('--future')
+        ),
+        'process.env.future': JSON.stringify(
+          process.env.FUTURE === 'true' ||
+            process.env.FUTURE === '1' ||
+            process.env.future === 'true' ||
+            process.env.future === '1' ||
+            process.argv.includes('--future')
+        ),
       }),
       new WebpackAssetsManifest({
         entrypoints: true,

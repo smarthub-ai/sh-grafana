@@ -7,6 +7,8 @@ ARG BASE_IMAGE=alpine-base
 ARG GO_IMAGE=go-builder-base
 ARG JS_IMAGE=js-builder-base
 ARG JS_PLATFORM=linux/amd64
+ARG FUTURE=false
+ARG future=false
 
 # Default to building locally
 ARG GO_SRC=go-builder
@@ -21,6 +23,11 @@ FROM --platform=${JS_PLATFORM} node:22-alpine AS js-builder-base
 
 # Javascript build stage
 FROM --platform=${JS_PLATFORM} ${JS_IMAGE} AS js-builder
+
+ARG FUTURE=false
+ARG future=false
+ENV FUTURE=${FUTURE}
+ENV future=${future}
 
 ENV NODE_OPTIONS=--max_old_space_size=8000
 

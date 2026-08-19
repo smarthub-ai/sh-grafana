@@ -4,12 +4,18 @@ set -e
 BUILD_FAST=0
 UBUNTU_BASE=0
 TAG_SUFFIX=""
+FUTURE=0
 
 while [ "$1" != "" ]; do
   case "$1" in
     "--fast")
       BUILD_FAST=1
       echo "Fast build enabled"
+      shift
+      ;;
+    "--future")
+      FUTURE=1
+      echo "Future filters enabled"
       shift
       ;;
     "--ubuntu")
@@ -68,6 +74,10 @@ docker_build () {
   grafana_tgz=${GRAFANA_TGZ:-"grafana-latest.linux-${arch}${libc}.tar.gz"}
   tag="${_docker_repo}${repo_arch}:${_grafana_version}${TAG_SUFFIX}"
 
+  future_arg=""
+  if [ "$FUTURE" = "1" ]; then
+    future_arg="--build-arg FUTURE=true"
+  fi
   DOCKER_BUILDKIT=1 \
   docker build \
     --build-arg BASE_IMAGE=${base_image} \
@@ -77,6 +87,7 @@ docker_build () {
     --build-arg RUN_SH=./run.sh \
     --tag "${tag}" \
     --no-cache=true \
+    ${future_arg} \
     --file ../../Dockerfile \
     .
 }

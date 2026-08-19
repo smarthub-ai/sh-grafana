@@ -4,6 +4,7 @@ import { dateTime } from './moment_wrapper';
 import {
   convertRawToRange,
   describeInterval,
+  describeTimeRange,
   isRelativeTimeRange,
   relativeToTimeRange,
   roundInterval,
@@ -308,6 +309,14 @@ describe('Range Utils', () => {
 
       expect(relativeTimeRange.from).toEqual(1209600);
       expect(relativeTimeRange.to).toEqual(604800);
+    });
+  });
+  describe('describeTimeRange', () => {
+    it('should describe Next Day, Next Week, Next Month and Today', () => {
+      expect(describeTimeRange({ from: 'now/d', to: 'now/d' })).toBe('Today');
+      expect(describeTimeRange({ from: 'now+1d/d', to: 'now+1d/d' })).toBe('Next Day');
+      expect(describeTimeRange({ from: 'now+1w/w', to: 'now+1w/w' })).toBe('Next Week');
+      expect(describeTimeRange({ from: 'now+1M/M', to: 'now+1M/M' })).toBe('Next Month');
     });
   });
 });

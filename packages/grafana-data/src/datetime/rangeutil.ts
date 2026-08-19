@@ -65,6 +65,9 @@ const BASE_RANGE_OPTIONS: TimeOption[] = [
 ];
 
 const HIDDEN_RANGE_OPTIONS: TimeOption[] = [
+  { from: 'now+1d/d', to: 'now+1d/d', display: 'Next Day' },
+  { from: 'now+1w/w', to: 'now+1w/w', display: 'Next Week' },
+  { from: 'now+1M/M', to: 'now+1M/M', display: 'Next Month' },
   { from: 'now', to: 'now+1m', display: 'Next minute' },
   { from: 'now', to: 'now+5m', display: 'Next 5 minutes' },
   { from: 'now', to: 'now+15m', display: 'Next 15 minutes' },

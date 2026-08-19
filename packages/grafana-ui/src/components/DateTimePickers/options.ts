@@ -2,7 +2,14 @@ import { TimeOption } from '@grafana/data';
 
 import { ComboboxOption } from '../Combobox/types';
 
-export const quickOptions: TimeOption[] = [
+export const futureOptions: TimeOption[] = [
+  { from: 'now/d', to: 'now/d', display: 'Today' },
+  { from: 'now+1d/d', to: 'now+1d/d', display: 'Next Day' },
+  { from: 'now+1w/w', to: 'now+1w/w', display: 'Next Week' },
+  { from: 'now+1M/M', to: 'now+1M/M', display: 'Next Month' },
+];
+
+export const baseQuickOptions: TimeOption[] = [
   // { from: 'now-5m', to: 'now', display: 'Last 5 minutes' },
   // { from: 'now-15m', to: 'now', display: 'Last 15 minutes' },
   // { from: 'now-30m', to: 'now', display: 'Last 30 minutes' },
@@ -31,15 +38,25 @@ export const quickOptions: TimeOption[] = [
   // { from: 'now/d', to: 'now', display: 'Today so far' },
   // { from: 'now/w', to: 'now/w', display: 'This week' },
   // { from: 'now/w', to: 'now', display: 'This week so far' },
-  // { from: 'now/M', to: 'now/M', display: 'This month' },
+  // { from: 'now/M', to: 'now', display: 'This month' },
   { from: 'now/M', to: 'now', display: 'This month so far' },
-  // { from: 'now/y', to: 'now/y', display: 'This year' },
+  // { from: 'now/y', to: 'now', display: 'This year' },
   // { from: 'now/y', to: 'now', display: 'This year so far' },
   // { from: 'now/fQ', to: 'now', display: 'This fiscal quarter so far' },
-  // { from: 'now/fQ', to: 'now/fQ', display: 'This fiscal quarter' },
+  // { from: 'now/fQ', to: 'now', display: 'This fiscal quarter' },
   // { from: 'now/fy', to: 'now', display: 'This fiscal year so far' },
-  // { from: 'now/fy', to: 'now/fy', display: 'This fiscal year' },
+  // { from: 'now/fy', to: 'now', display: 'This fiscal year' },
 ];
+
+const isFuture =
+  (Boolean(process.env.FUTURE) &&
+    process.env.FUTURE !== 'false' &&
+    process.env.FUTURE !== '0') ||
+  (Boolean(process.env.future) &&
+    process.env.future !== 'false' &&
+    process.env.future !== '0');
+
+export const quickOptions: TimeOption[] = isFuture ? [...futureOptions, ...baseQuickOptions] : baseQuickOptions;
 
 export const monthOptions: Array<ComboboxOption<number>> = [
   { label: 'January', value: 0 },

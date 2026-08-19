@@ -68,6 +68,22 @@ module.exports = {
     new webpack.ProvidePlugin({
       Buffer: ['buffer', 'Buffer'],
     }),
+    new webpack.DefinePlugin({
+      'process.env.FUTURE': JSON.stringify(
+        process.env.FUTURE === 'true' ||
+          process.env.FUTURE === '1' ||
+          process.env.future === 'true' ||
+          process.env.future === '1' ||
+          process.argv.includes('--future')
+      ),
+      'process.env.future': JSON.stringify(
+        process.env.FUTURE === 'true' ||
+          process.env.FUTURE === '1' ||
+          process.env.future === 'true' ||
+          process.env.future === '1' ||
+          process.argv.includes('--future')
+      ),
+    }),
   ],
   module: {
     rules: [
