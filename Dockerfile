@@ -151,8 +151,7 @@ ENV PATH="/usr/share/grafana/bin:$PATH" \
     GF_PATHS_LOGS="/var/log/grafana" \
     GF_PATHS_PLUGINS="/var/lib/grafana/plugins" \
     GF_PATHS_PROVISIONING="/etc/grafana/provisioning" \
-    GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS="nikosc-percenttrend-panel,briangann-datatable-panel" \
-    GF_INSTALL_PLUGINS="volkovlabs-echarts-panel,nikosc-percenttrend-panel,briangann-datatable-panel"
+    GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS="nikosc-percenttrend-panel,briangann-datatable-panel"
 
 WORKDIR $GF_PATHS_HOME
 
@@ -220,6 +219,13 @@ RUN if [ ! $(getent group "$GF_GID") ]; then \
 COPY --from=go-src /tmp/grafana/bin/grafana* /tmp/grafana/bin/*/grafana* ./bin/
 COPY --from=js-src /tmp/grafana/public ./public
 COPY --from=js-src /tmp/grafana/LICENSE ./
+
+# Pre-install required plugins during image build so the runtime container does not require outbound internet access to grafana.com
+RUN grafana cli --pluginsDir "$GF_PATHS_PLUGINS" plugins install volkovlabs-echarts-panel \
+    && grafana cli --pluginsDir "$GF_PATHS_PLUGINS" plugins install nikosc-percenttrend-panel \
+    && grafana cli --pluginsDir "$GF_PATHS_PLUGINS" plugins install briangann-datatable-panel \
+    && chown -R "grafana:$GF_GID_NAME" "$GF_PATHS_PLUGINS" \
+    && chmod -R 777 "$GF_PATHS_PLUGINS"
 
 EXPOSE 3000
 
