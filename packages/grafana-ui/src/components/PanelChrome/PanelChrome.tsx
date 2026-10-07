@@ -434,7 +434,8 @@ const getStyles = (theme: GrafanaTheme2) => {
     container: css({
       label: 'panel-container',
       backgroundColor: background,
-      border: `1px solid ${borderColor}`,
+      // Apply 2px border width when custom theme is active, preserving default 1px otherwise
+      border: theme.custom ? `2px solid ${borderColor}` : `1px solid ${borderColor}`,
       position: 'relative',
       borderRadius: theme.shape.radius.default,
       height: '100%',
@@ -497,11 +498,26 @@ const getStyles = (theme: GrafanaTheme2) => {
       label: 'panel-content',
       flexGrow: 1,
       contain: 'size layout',
+      // Apply primary card background to panel content when custom theme is active (#000000 in dark, #FFFFFF in light)
+      ...(theme.custom
+        ? {
+            backgroundColor: theme.colors.background.primary,
+          }
+        : {}),
     }),
     headerContainer: css({
       label: 'panel-header',
       display: 'flex',
       alignItems: 'center',
+      // Apply custom section header background and appropriate text contrast when custom theme is active
+      ...(theme.custom?.sectionHeaderBackground
+        ? {
+            background: theme.custom.sectionHeaderBackground,
+            color: theme.isLight ? '#222222' : '#FFFFFF',
+            padding: theme.spacing(0.5, 1),
+            borderRadius: `${theme.shape.radius.default} ${theme.shape.radius.default} 0 0`,
+          }
+        : {}),
     }),
     pointer: css({
       cursor: 'pointer',
@@ -522,6 +538,12 @@ const getStyles = (theme: GrafanaTheme2) => {
       minWidth: 0,
       '& > h2': {
         minWidth: 0,
+        // Match header text color based on light/dark mode when custom section header background is active
+        ...(theme.custom?.sectionHeaderBackground
+          ? {
+              color: theme.isLight ? '#222222' : '#FFFFFF',
+            }
+          : {}),
       },
       flex: 1,
       justifyContent: 'center'

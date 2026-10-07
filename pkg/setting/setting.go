@@ -246,6 +246,9 @@ type Cfg struct {
 	IDResponseHeaderNamespaces    map[string]struct{}
 	ManagedServiceAccountsEnabled bool
 
+	// Custom theme settings for UI colors and header customization
+	CustomTheme CustomThemeSettings
+
 	// AWS Plugin Auth
 	AWSAllowedAuthProviders   []string
 	AWSAssumeRoleEnabled      bool
@@ -1144,6 +1147,10 @@ func (cfg *Cfg) parseINIFile(iniFile *ini.File) error {
 	if err := readUserSettings(iniFile, cfg); err != nil {
 		return err
 	}
+	// Read custom theme configuration overrides
+	if err := readCustomThemeSettings(iniFile, cfg); err != nil {
+		return err
+	}
 	if err := readServiceAccountSettings(iniFile, cfg); err != nil {
 		return err
 	}
@@ -1786,6 +1793,62 @@ func readUserSettings(iniFile *ini.File, cfg *Cfg) error {
 func readServiceAccountSettings(iniFile *ini.File, cfg *Cfg) error {
 	serviceAccount := iniFile.Section("service_accounts")
 	cfg.SATokenExpirationDayLimit = serviceAccount.Key("token_expiration_day_limit").MustInt(-1)
+	return nil
+}
+
+// CustomThemeSettings holds the configurable theme colors
+type CustomThemeSettings struct {
+	Enabled                      bool   `json:"enabled"`
+	HeaderBackground             string `json:"headerBackground"`
+	HeaderTextColor              string `json:"headerTextColor"`
+	LightBackgroundCanvas        string `json:"lightBackgroundCanvas"`
+	LightBackgroundPrimary       string `json:"lightBackgroundPrimary"`
+	LightBackgroundSecondary     string `json:"lightBackgroundSecondary"`
+	LightSectionHeaderBackground string `json:"lightSectionHeaderBackground"`
+	LightBorderWeak              string `json:"lightBorderWeak"`
+	LightBorderMedium            string `json:"lightBorderMedium"`
+	DarkBackgroundCanvas         string `json:"darkBackgroundCanvas"`
+	DarkBackgroundPrimary        string `json:"darkBackgroundPrimary"`
+	DarkBackgroundSecondary      string `json:"darkBackgroundSecondary"`
+	DarkSectionHeaderBackground  string `json:"darkSectionHeaderBackground"`
+	DarkBorderWeak               string `json:"darkBorderWeak"`
+	DarkBorderMedium             string `json:"darkBorderMedium"`
+}
+
+// Helper to read custom theme color from ini, stripping quotes and falling back to default if empty
+func getCustomThemeColor(sec *ini.Section, key string, fallback string) string {
+	v := strings.Trim(strings.TrimSpace(sec.Key(key).String()), "\"'")
+	if v == "" {
+		return fallback
+	}
+	return v
+}
+
+// readCustomThemeSettings parses the [theme.custom] section from the configuration file
+func readCustomThemeSettings(iniFile *ini.File, cfg *Cfg) error {
+	sec := iniFile.Section("theme.custom")
+	if sec == nil {
+		return nil
+	}
+	cfg.CustomTheme.Enabled = sec.Key("enabled").MustBool(false)
+	if !cfg.CustomTheme.Enabled {
+		return nil
+	}
+	// Read custom theme colors with fallbacks matching defaults.ini specification
+	cfg.CustomTheme.HeaderBackground = getCustomThemeColor(sec, "header_background", "#d21300")
+	cfg.CustomTheme.HeaderTextColor = getCustomThemeColor(sec, "header_text_color", "#FFFFFF")
+	cfg.CustomTheme.LightBackgroundCanvas = getCustomThemeColor(sec, "light_background_canvas", "#FAF9F5")
+	cfg.CustomTheme.LightBackgroundPrimary = getCustomThemeColor(sec, "light_background_primary", "#FFFFFF")
+	cfg.CustomTheme.LightBackgroundSecondary = getCustomThemeColor(sec, "light_background_secondary", "#F4F3EE")
+	cfg.CustomTheme.LightSectionHeaderBackground = getCustomThemeColor(sec, "light_section_header_background", "#DADBD6")
+	cfg.CustomTheme.LightBorderWeak = getCustomThemeColor(sec, "light_border_weak", "#DFD2B0")
+	cfg.CustomTheme.LightBorderMedium = getCustomThemeColor(sec, "light_border_medium", "#E5E2DC")
+	cfg.CustomTheme.DarkBackgroundCanvas = getCustomThemeColor(sec, "dark_background_canvas", "#141414")
+	cfg.CustomTheme.DarkBackgroundPrimary = getCustomThemeColor(sec, "dark_background_primary", "#000000")
+	cfg.CustomTheme.DarkBackgroundSecondary = getCustomThemeColor(sec, "dark_background_secondary", "#222222")
+	cfg.CustomTheme.DarkSectionHeaderBackground = getCustomThemeColor(sec, "dark_section_header_background", "#525252")
+	cfg.CustomTheme.DarkBorderWeak = getCustomThemeColor(sec, "dark_border_weak", "#656565")
+	cfg.CustomTheme.DarkBorderMedium = getCustomThemeColor(sec, "dark_border_medium", "#656565")
 	return nil
 }
 

@@ -328,6 +328,9 @@ func (hs *HTTPServer) getFrontendSettings(c *contextmodel.ReqContext) (*dtos.Fro
 		SamlName:                hs.samlName(),
 		TokenExpirationDayLimit: hs.Cfg.SATokenExpirationDayLimit,
 
+		// Pass custom theme configuration overrides to frontend
+		CustomTheme: hs.Cfg.CustomTheme,
+
 		SnapshotEnabled: hs.Cfg.SnapshotEnabled,
 
 		SqlConnectionLimits: dtos.FrontendSettingsSqlConnectionLimitsDTO{

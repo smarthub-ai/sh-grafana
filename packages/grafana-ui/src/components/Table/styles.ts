@@ -45,7 +45,10 @@ export function useTableStyles(theme: GrafanaTheme2, cellHeightOption: TableCell
       borderRight: `1px solid ${borderColor}`,
 
       color: rowStyled ? 'inherit' : (color ?? undefined),
-      background: rowStyled ? undefined : (background ?? undefined),
+      // Apply primary background when custom theme is active, preserving cell background in both light and dark modes
+      background: rowStyled
+        ? undefined
+        : (background ?? (theme.custom ? theme.colors.background.primary : undefined)),
       backgroundClip: 'padding-box',
 
       '&:last-child:not(:only-child)': {
@@ -119,6 +122,13 @@ export function useTableStyles(theme: GrafanaTheme2, cellHeightOption: TableCell
       overflowY: 'auto',
       overflowX: 'hidden',
       position: 'relative',
+      // Apply custom section header background and contrast text color when custom theme is active
+      ...(theme.custom
+        ? {
+            background: theme.custom.sectionHeaderBackground || (theme.isLight ? '#DADBD6' : '#525252'),
+            color: theme.isLight ? '#222222' : '#FFFFFF',
+          }
+        : {}),
     }),
     tfoot: css({
       label: 'tfoot',
@@ -140,6 +150,12 @@ export function useTableStyles(theme: GrafanaTheme2, cellHeightOption: TableCell
       display: 'flex',
       alignItems: 'center',
       fontWeight: theme.typography.fontWeightMedium,
+      // Apply contrast header text color when custom theme is active
+      ...(theme.custom
+        ? {
+            color: theme.isLight ? '#222222' : '#FFFFFF',
+          }
+        : {}),
 
       '&:last-child': {
         borderRight: 'none',
@@ -157,6 +173,12 @@ export function useTableStyles(theme: GrafanaTheme2, cellHeightOption: TableCell
       display: 'flex',
       alignItems: 'center',
       marginRight: theme.spacing(0.5),
+      // Apply contrast header text color when custom theme is active
+      ...(theme.custom
+        ? {
+            color: theme.isLight ? '#222222' : '#FFFFFF',
+          }
+        : {}),
 
       '&:hover': {
         textDecoration: 'underline',

@@ -83,6 +83,23 @@ module.exports = {
           process.env.future === '1' ||
           process.argv.includes('--future')
       ),
+      // Define ENABLE_THEME for build-time feature activation (checks env vars, --enable-theme, and --env enableTheme)
+      'process.env.ENABLE_THEME': JSON.stringify(
+        process.env.ENABLE_THEME === 'true' ||
+          process.env.ENABLE_THEME === '1' ||
+          process.env.enable_theme === 'true' ||
+          process.env.enable_theme === '1' ||
+          process.argv.includes('--enable-theme') ||
+          process.argv.some((arg) => /enable[-_]?theme/i.test(arg))
+      ),
+      'process.env.enable_theme': JSON.stringify(
+        process.env.ENABLE_THEME === 'true' ||
+          process.env.ENABLE_THEME === '1' ||
+          process.env.enable_theme === 'true' ||
+          process.env.enable_theme === '1' ||
+          process.argv.includes('--enable-theme') ||
+          process.argv.some((arg) => /enable[-_]?theme/i.test(arg))
+      ),
     }),
   ],
   module: {

@@ -20,6 +20,7 @@ import {
   PluginLoadingStrategy,
   PluginDependencies,
   PluginExtensions,
+  CustomThemeConfig,
 } from '@grafana/data';
 
 export interface AzureSettings {
@@ -204,6 +205,9 @@ export class GrafanaBootConfig implements GrafanaConfig {
   reportingStaticContext?: Record<string, string>;
   exploreDefaultTimeOffset = '1h';
   exploreHideLogsDownload: boolean | undefined;
+
+  /** Custom theme configuration overrides */
+  customTheme?: CustomThemeConfig;
 
   /**
    * Language used in Grafana's UI. This is after the user's preference (or deteceted locale) is resolved to one of

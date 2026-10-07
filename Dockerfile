@@ -9,6 +9,10 @@ ARG JS_IMAGE=js-builder-base
 ARG JS_PLATFORM=linux/amd64
 ARG FUTURE=false
 ARG future=false
+# Enable custom theme build argument
+ARG ENABLE_THEME=false
+ARG enable_theme=false
+ARG enable-theme=false
 
 # Default to building locally
 ARG GO_SRC=go-builder
@@ -28,6 +32,12 @@ ARG FUTURE=false
 ARG future=false
 ENV FUTURE=${FUTURE}
 ENV future=${future}
+# Pass custom theme build argument to JS build environment
+ARG ENABLE_THEME=false
+ARG enable_theme=false
+ARG enable-theme=false
+ENV ENABLE_THEME=${ENABLE_THEME}
+ENV enable_theme=${enable_theme}
 
 ENV NODE_OPTIONS=--max_old_space_size=8000
 
@@ -50,7 +60,11 @@ COPY scripts scripts
 COPY emails emails
 
 ENV NODE_ENV=production
-RUN yarn build
+RUN if [ "$(printenv enable-theme)" = "true" ] || [ "${enable_theme}" = "true" ] || [ "${ENABLE_THEME}" = "true" ]; then \
+      ENABLE_THEME=true enable_theme=true yarn build; \
+    else \
+      yarn build; \
+    fi
 
 # Golang build stage
 FROM ${GO_IMAGE} AS go-builder

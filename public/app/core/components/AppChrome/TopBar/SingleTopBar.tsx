@@ -115,38 +115,60 @@ export const SingleTopBar = memo(function SingleTopBar({
   );
 });
 
-const getStyles = (theme: GrafanaTheme2, menuDockedAndOpen: boolean) => ({
-  layout: css({
-    height: TOP_BAR_LEVEL_HEIGHT,
-    display: 'flex',
-    gap: theme.spacing(2),
-    alignItems: 'center',
-    padding: theme.spacing(0, 1),
-    paddingLeft: menuDockedAndOpen ? theme.spacing(3.5) : theme.spacing(0.75),
-    borderBottom: `1px solid ${theme.colors.border.weak}`,
-    justifyContent: 'space-between',
+const getStyles = (theme: GrafanaTheme2, menuDockedAndOpen: boolean) => {
+  const customHeader = theme.custom?.headerBackground;
+  const headerTextColor = theme.custom?.headerTextColor || '#FFFFFF';
 
-    [theme.breakpoints.up('lg')]: {
-      // gridTemplateColumns: '2fr minmax(550px, 1fr)',
-      // display: 'grid',
-      justifyContent: 'flex-start',
-    },
-  }),
-  breadcrumbsWrapper: css({
-    display: 'flex',
-    overflow: 'hidden',
-    [theme.breakpoints.down('sm')]: {
-      minWidth: '40%',
-    },
-  }),
-  img: css({
-    alignSelf: 'center',
-    height: theme.spacing(3),
-    width: theme.spacing(3),
-  }),
-  kioskToggle: css({
-    [theme.breakpoints.down('lg')]: {
-      display: 'none',
-    },
-  }),
-});
+  return {
+    layout: css({
+      height: TOP_BAR_LEVEL_HEIGHT,
+      display: 'flex',
+      gap: theme.spacing(2),
+      alignItems: 'center',
+      padding: theme.spacing(0, 1),
+      paddingLeft: menuDockedAndOpen ? theme.spacing(3.5) : theme.spacing(0.75),
+      // Apply custom header background color to SingleTopBar directly
+      backgroundColor: customHeader || undefined,
+      // Use subtle overlay border when custom header background is active
+      borderBottom: customHeader ? '1px solid rgba(0, 0, 0, 0.15)' : `1px solid ${theme.colors.border.weak}`,
+      justifyContent: 'space-between',
+      ...(customHeader
+        ? {
+            color: headerTextColor,
+            '& a, & span, & svg, & button, & [class*="breadcrumbs"]': {
+              color: `${headerTextColor} !important`,
+            },
+            '& button': {
+              color: `${headerTextColor} !important`,
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.15) !important',
+              },
+            },
+          }
+        : {}),
+
+      [theme.breakpoints.up('lg')]: {
+        // gridTemplateColumns: '2fr minmax(550px, 1fr)',
+        // display: 'grid',
+        justifyContent: 'flex-start',
+      },
+    }),
+    breadcrumbsWrapper: css({
+      display: 'flex',
+      overflow: 'hidden',
+      [theme.breakpoints.down('sm')]: {
+        minWidth: '40%',
+      },
+    }),
+    img: css({
+      alignSelf: 'center',
+      height: theme.spacing(3),
+      width: theme.spacing(3),
+    }),
+    kioskToggle: css({
+      [theme.breakpoints.down('lg')]: {
+        display: 'none',
+      },
+    }),
+  };
+};

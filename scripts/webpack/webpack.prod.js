@@ -65,7 +65,15 @@ module.exports = (env = {}) =>
     // enable persistent cache for faster builds
     cache: {
       type: 'filesystem',
-      name: 'grafana-default-production' + ((process.env.FUTURE === 'true' || process.env.FUTURE === '1' || process.env.future === 'true' || process.env.future === '1') ? '-future' : ''),
+      // Differentiate persistent cache when future or enable-theme is set
+      name:
+        'grafana-default-production' +
+        (process.env.FUTURE === 'true' || process.env.FUTURE === '1' || process.env.future === 'true' || process.env.future === '1'
+          ? '-future'
+          : '') +
+        (process.env.ENABLE_THEME === 'true' || process.env.ENABLE_THEME === '1' || process.env.enable_theme === 'true' || process.env.enable_theme === '1' || process.argv.includes('--enable-theme')
+          ? '-theme'
+          : ''),
       buildDependencies: {
         config: [__filename],
       },

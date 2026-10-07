@@ -310,7 +310,7 @@ export { type MonacoLanguageRegistryItem, monacoLanguageRegistry } from './monac
 // Theme
 export { createTheme } from './themes/createTheme';
 export { getThemeById, getBuiltInThemes, type ThemeRegistryItem } from './themes/registry';
-export type { NewThemeOptions } from './themes/createTheme';
+export type { NewThemeOptions, CustomThemeConfig } from './themes/createTheme';
 export type { ThemeRichColor, GrafanaTheme2 } from './themes/types';
 export type { ThemeColors } from './themes/createColors';
 export type { ThemeBreakpoints, ThemeBreakpointsKey } from './themes/breakpoints';

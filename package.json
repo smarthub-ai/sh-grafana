@@ -45,6 +45,7 @@
     "start:liveReload": "yarn start -- --env liveReload=1",
     "start:noTsCheck": "yarn start -- --env noTsCheck=1",
     "start:noLint": "yarn start -- --env noTsCheck=1 --env noLint=1",
+    "start:theme": "yarn start:noTsCheck -- --env enableTheme=1",
     "stats": "webpack --mode production --config scripts/webpack/webpack.prod.js --profile --json > compilation-stats.json",
     "storybook": "yarn workspace @grafana/ui storybook --ci",
     "storybook:build": "yarn workspace @grafana/ui storybook:build",

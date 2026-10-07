@@ -5,6 +5,8 @@ BUILD_FAST=0
 UBUNTU_BASE=0
 TAG_SUFFIX=""
 FUTURE=0
+# Enable custom theme build argument
+ENABLE_THEME=0
 
 while [ "$1" != "" ]; do
   case "$1" in
@@ -16,6 +18,12 @@ while [ "$1" != "" ]; do
     "--future")
       FUTURE=1
       echo "Future filters enabled"
+      shift
+      ;;
+    "--enable-theme")
+      # Enable custom theme support during docker build
+      ENABLE_THEME=1
+      echo "Custom theme enabled"
       shift
       ;;
     "--ubuntu")
@@ -78,6 +86,11 @@ docker_build () {
   if [ "$FUTURE" = "1" ]; then
     future_arg="--build-arg FUTURE=true"
   fi
+  # Pass enable-theme build argument if enabled
+  theme_arg=""
+  if [ "$ENABLE_THEME" = "1" ]; then
+    theme_arg="--build-arg enable-theme=true --build-arg ENABLE_THEME=true --build-arg enable_theme=true"
+  fi
   DOCKER_BUILDKIT=1 \
   docker build \
     --build-arg BASE_IMAGE=${base_image} \
@@ -88,6 +101,7 @@ docker_build () {
     --tag "${tag}" \
     --no-cache=true \
     ${future_arg} \
+    ${theme_arg} \
     --file ../../Dockerfile \
     .
 }

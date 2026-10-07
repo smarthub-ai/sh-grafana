@@ -33,6 +33,12 @@ export interface GrafanaTheme2 {
   v1: GrafanaTheme;
   /** feature flags that might impact component looks */
   flags: {};
+  /** Custom theme configuration overrides for header and components */
+  custom?: {
+    headerBackground?: string;
+    headerTextColor?: string;
+    sectionHeaderBackground?: string;
+  };
 }
 
 /** @alpha */

@@ -19,6 +19,8 @@ export function NavToolbarSeparator({ className, leftActionsSeparator }: Props) 
 }
 
 const getStyles = (theme: GrafanaTheme2) => {
+  const customHeader = theme.custom?.headerBackground;
+
   return {
     leftActionsSeparator: css({
       display: 'flex',
@@ -26,7 +28,8 @@ const getStyles = (theme: GrafanaTheme2) => {
     }),
     line: css({
       width: 1,
-      backgroundColor: theme.colors.border.medium,
+      // Use subtle semi-transparent white separator on custom header, otherwise medium border
+      backgroundColor: customHeader ? 'rgba(255, 255, 255, 0.25)' : theme.colors.border.medium,
       height: 24,
     }),
   };

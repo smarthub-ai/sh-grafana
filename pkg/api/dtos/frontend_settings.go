@@ -292,4 +292,7 @@ type FrontendSettingsDTO struct {
 	// Experimental Scope settings
 	ListScopesEndpoint          string `json:"listScopesEndpoint"`
 	ListDashboardScopesEndpoint string `json:"listDashboardScopesEndpoint"`
+
+	// Custom theme configuration overrides
+	CustomTheme setting.CustomThemeSettings `json:"customTheme"`
 }

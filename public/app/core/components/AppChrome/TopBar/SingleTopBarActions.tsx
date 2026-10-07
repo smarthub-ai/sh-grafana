@@ -20,15 +20,33 @@ export function SingleTopBarActions({ children }: PropsWithChildren) {
 }
 
 const getStyles = (theme: GrafanaTheme2) => {
+  const customHeader = theme.custom?.headerBackground;
+  const headerTextColor = theme.custom?.headerTextColor || '#FFFFFF';
+
   return {
     actionsBar: css({
       alignItems: 'center',
-      backgroundColor: theme.colors.background.primary,
-      borderBottom: `1px solid ${theme.colors.border.weak}`,
+      // Match custom header background color when active, otherwise fallback to default
+      backgroundColor: customHeader || theme.colors.background.primary,
+      borderBottom: customHeader ? '1px solid rgba(0, 0, 0, 0.15)' : `1px solid ${theme.colors.border.weak}`,
       display: 'flex',
       height: TOP_BAR_LEVEL_HEIGHT,
       padding: theme.spacing(0, 1, 0, 2),
       flex: 1,
+      ...(customHeader
+        ? {
+            color: headerTextColor,
+            '& a, & span, & svg, & button, & [class*="Button"]': {
+              color: `${headerTextColor} !important`,
+            },
+            '& button': {
+              color: `${headerTextColor} !important`,
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.15) !important',
+              },
+            },
+          }
+        : {}),
     }),
   };
 };
