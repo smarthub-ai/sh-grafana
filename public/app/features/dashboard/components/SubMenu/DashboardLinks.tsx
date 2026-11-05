@@ -7,7 +7,7 @@ import { DashboardLink } from '@grafana/schema';
 import { Tooltip, useForceUpdate } from '@grafana/ui';
 import { LINK_ICON_MAP } from 'app/features/dashboard-scene/settings/links/utils';
 
-import { getLinkSrv } from '../../../panel/panellinks/link_srv';
+import { getDashboardLinkTarget, getLinkSrv } from '../../../panel/panellinks/link_srv';
 import { DashboardModel } from '../../state/DashboardModel';
 
 import { DashboardLinkButton, DashboardLinksDashboard } from './DashboardLinksDashboard';
@@ -44,7 +44,8 @@ export const DashboardLinks = ({ dashboard, links }: Props) => {
         const linkElement = (
           <DashboardLinkButton
             href={sanitizeUrl(linkInfo.href)}
-            target={link.targetBlank ? '_blank' : undefined}
+            // Pulse UI: /ui/#/... dashboard links open in the top window
+            target={getDashboardLinkTarget(link, linkInfo.href)}
             rel="noreferrer"
             data-testid={selectors.components.DashboardLinks.link}
             icon={icon}

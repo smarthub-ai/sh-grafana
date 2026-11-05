@@ -71,6 +71,30 @@ describe('createTheme', () => {
     }
   });
 
+  // Images built without ENABLE_THEME get this boot data from conf/defaults.ini and must keep Grafana's default colors
+  it('keeps default colors when the custom theme is disabled via bootData', () => {
+    const defaultLight = createTheme({ colors: { mode: 'light' } });
+    const defaultDark = createTheme({ colors: { mode: 'dark' } });
+
+    (window as any).grafanaBootData = {
+      settings: { customTheme: { enabled: false, headerBackground: '', headerTextColor: '' } },
+    };
+
+    try {
+      const lightTheme = createTheme({ colors: { mode: 'light' } });
+      expect(lightTheme.custom).toBeUndefined();
+      expect(lightTheme.colors.background).toEqual(defaultLight.colors.background);
+      expect(lightTheme.colors.border).toEqual(defaultLight.colors.border);
+
+      const darkTheme = createTheme({ colors: { mode: 'dark' } });
+      expect(darkTheme.custom).toBeUndefined();
+      expect(darkTheme.colors.background).toEqual(defaultDark.colors.background);
+      expect(darkTheme.colors.border).toEqual(defaultDark.colors.border);
+    } finally {
+      delete (window as any).grafanaBootData;
+    }
+  });
+
   // Verify default custom theme colors are applied when ENABLE_THEME is set in the environment
   it('applies default custom theme colors when ENABLE_THEME is true in environment', () => {
     const originalEnv = process.env.ENABLE_THEME;

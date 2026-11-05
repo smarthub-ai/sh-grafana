@@ -244,4 +244,41 @@ describe('locationUtil', () => {
       expect(newURL).toBe('http://www.domain.com:1234/test?a=newValue&b=2&newKey=hello#hashtag');
     });
   });
+
+  // Pulse UI: dashboard drill-down links are routed through /ui/#
+  describe('assurePulseUiUrl', () => {
+    beforeEach(() => {
+      locationUtil.initialize({
+        config: { appSubUrl: '/insights' } as GrafanaConfig,
+        getVariablesUrlParams: jest.fn(),
+        getTimeRangeForUrl: jest.fn(),
+      });
+    });
+
+    test('relative dashboard url goes to the insights route', () => {
+      expect(locationUtil.assurePulseUiUrl('/insights/d/abc/my-dash?orgId=1&from=1')).toBe(
+        '/ui/#/insights/d/abc/my-dash?orgId=1&from=1'
+      );
+    });
+
+    test('absolute same-origin dashboard url keeps the origin', () => {
+      expect(locationUtil.assurePulseUiUrl('http://www.domain.com:9877/insights/d/abc/my-dash?orgId=1')).toBe(
+        'http://www.domain.com:9877/ui/#/insights/d/abc/my-dash?orgId=1'
+      );
+    });
+
+    test('dashboard url goes to the flow intelligence route when the top window is on it', () => {
+      window.location.hash = '#/ops/flow-intelligence';
+      expect(locationUtil.assurePulseUiUrl('/insights/d/abc/my-dash?orgId=1')).toBe(
+        '/ui/#/ops/flow-intelligence/insights/d/abc/my-dash?orgId=1'
+      );
+    });
+
+    test('non dashboard and other origin urls are unchanged', () => {
+      expect(locationUtil.assurePulseUiUrl('/insights/explore?left=1')).toBe('/insights/explore?left=1');
+      expect(locationUtil.assurePulseUiUrl('https://other.com/insights/d/abc')).toBe(
+        'https://other.com/insights/d/abc'
+      );
+    });
+  });
 });

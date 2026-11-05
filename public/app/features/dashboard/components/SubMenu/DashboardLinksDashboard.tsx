@@ -11,7 +11,7 @@ import { ButtonLinkProps, LinkButton } from '@grafana/ui/src/components/Button';
 import { getBackendSrv } from 'app/core/services/backend_srv';
 import { DashboardSearchItem } from 'app/features/search/types';
 
-import { getLinkSrv } from '../../../panel/panellinks/link_srv';
+import { getDashboardLinkTarget, getLinkSrv } from '../../../panel/panellinks/link_srv';
 
 interface Props {
   link: DashboardLink;
@@ -41,7 +41,8 @@ function DashboardLinksMenu({ dashboardUID, link }: DashboardLinksMenuProps) {
             return (
               <Menu.Item
                 url={resolvedLink.url}
-                target={link.targetBlank ? '_blank' : undefined}
+                // Pulse UI: /ui/#/... dashboard links open in the top window
+                target={getDashboardLinkTarget(link, resolvedLink.url)}
                 key={`dashlinks-dropdown-item-${resolvedLink.uid}-${index}`}
                 label={resolvedLink.title}
                 testId={selectors.components.DashboardLinks.link}
@@ -90,7 +91,8 @@ export const DashboardLinksDashboard = (props: Props) => {
               variant="secondary"
               fill="outline"
               href={resolvedLink.url}
-              target={link.targetBlank ? '_blank' : undefined}
+              // Pulse UI: /ui/#/... dashboard links open in the top window
+              target={getDashboardLinkTarget(link, resolvedLink.url)}
               rel="noreferrer"
               data-testid={selectors.components.DashboardLinks.link}
             >

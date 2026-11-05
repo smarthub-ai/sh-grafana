@@ -88,7 +88,8 @@ export interface InternalDataLink<T extends DataQuery = any> {
   range?: TimeRange;
 }
 
-export type LinkTarget = '_blank' | '_self' | undefined;
+// Pulse UI: '_top' opens dashboard drill-down links (/ui/#/...) in the top window when Grafana is embedded
+export type LinkTarget = '_blank' | '_self' | '_top' | undefined;
 
 /**
  * Processed Link Model. The values are ready to use

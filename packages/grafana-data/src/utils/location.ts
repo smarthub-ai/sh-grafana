@@ -66,6 +66,45 @@ const assureBaseUrl = (url: string): string => {
 };
 
 /**
+ * Rewrites a Grafana dashboard link (<appSubUrl>/d/...) to the Pulse UI route that embeds it:
+ * /ui/#/ops/flow-intelligence/insights/d/... when the top window is on Flow Intelligence,
+ * otherwise /ui/#/insights/d/.... Other urls are returned unchanged.
+ * @param url
+ * @internal
+ */
+const assurePulseUiUrl = (url: string): string => {
+  // Only Grafana served under Pulse's /insights sub path is embedded in Pulse UI
+  const pulseInsightsSubUrl = '/insights';
+  const dashboardPath = `${pulseInsightsSubUrl}/d/`;
+  const origin = url.startsWith(`${window.location.origin}/`) ? window.location.origin : '';
+  const path = url.slice(origin.length);
+
+  if (grafanaConfig.appSubUrl !== pulseInsightsSubUrl || !path.startsWith(dashboardPath)) {
+    return url;
+  }
+
+  let isFlowIntelligence = false;
+  try {
+    isFlowIntelligence = (window.top ?? window).location.hash.startsWith('#/ops/flow-intelligence');
+  } catch {
+    // Top window is on a different origin, fall back to the insights route
+  }
+
+  return `${origin}/ui/#${isFlowIntelligence ? '/ops/flow-intelligence' : ''}${path}`;
+};
+
+/**
+ * Returns true for a url already rewritten by assurePulseUiUrl (/ui/#/...), which has to be opened
+ * in the top window rather than inside Grafana's router or iframe.
+ * @param url
+ * @internal
+ */
+const isPulseUiUrl = (url: string): boolean => {
+  const origin = url.startsWith(`${window.location.origin}/`) ? window.location.origin : '';
+  return url.slice(origin.length).startsWith('/ui/#/');
+};
+
+/**
  *
  * @param location
  * @param searchParamsToUpdate
@@ -129,6 +168,9 @@ export const locationUtil = {
   },
   stripBaseFromUrl,
   assureBaseUrl,
+  // Pulse UI: route dashboard drill-down links through /ui/#
+  assurePulseUiUrl,
+  isPulseUiUrl,
   updateSearchParams,
   getTimeRangeUrlParams: () => {
     if (!getTimeRangeUrlParams) {

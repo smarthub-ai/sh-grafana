@@ -17,13 +17,14 @@ import { buildBreadcrumbs } from '../../Breadcrumbs/utils';
 import { HistoryContainer } from '../History/HistoryContainer';
 import { enrichHelpItem } from '../MegaMenu/utils';
 import { QuickAdd } from '../QuickAdd/QuickAdd';
-import { TOP_BAR_LEVEL_HEIGHT } from '../types';
+import { NOT_IN_TIME_PICKER_CONTENT, TIME_PICKER_CONTENT_SELECTOR, TOP_BAR_LEVEL_HEIGHT } from '../types';
 
 import { InviteUserButton } from './InviteUserButton';
 import { ProfileButton } from './ProfileButton';
 import { SignInLink } from './SignInLink';
 import { SingleTopBarActions } from './SingleTopBarActions';
 import { TopNavBarMenu } from './TopNavBarMenu';
+import { isInPulseDashboardViewer } from './pulseDashboardViewer';
 
 export const MEGA_MENU_TOGGLE_ID = 'mega-menu-toggle';
 
@@ -62,6 +63,7 @@ export const SingleTopBar = memo(function SingleTopBar({
     breadcrumbs = [breadcrumbs[breadcrumbs.length - 1]]
   }
   const unifiedHistoryEnabled = config.featureToggles.unifiedHistory;
+  const inPulseDashboardViewer = isInPulseDashboardViewer();
 
   return (
     <div className={styles.layout}>
@@ -79,14 +81,6 @@ export const SingleTopBar = memo(function SingleTopBar({
             </Stack>
           </ToolbarButton>
         )}
-        {contextSrv.isEditor ? null : 
-        <div style={{marginRight: '1rem', marginLeft: '-.5rem'}}>
-          <Stack>
-            <Branding.MenuLogo className={styles.img} /> 
-            <span>{Branding.AppTitle}</span>
-          </Stack>  
-        </div>
-         }
         <Breadcrumbs breadcrumbs={breadcrumbs} className={styles.breadcrumbsWrapper} />
       </Stack>
       <Stack minWidth={0} gap={0.5} alignItems="center" flex={1}>
@@ -101,15 +95,20 @@ export const SingleTopBar = memo(function SingleTopBar({
             <ToolbarButton iconOnly icon="question-circle" aria-label="Help" />
           </Dropdown>
         )}
-        <ToolbarButton
-          icon="monitor"
-          className={styles.kioskToggle}
-          onClick={onToggleKioskMode}
-          tooltip="Enable kiosk mode"
-        />
+        {/* Pulse UI: a dashboard viewer iframe has its own close button instead of the kiosk toggle */}
+        {!inPulseDashboardViewer && (
+          <ToolbarButton
+            icon="monitor"
+            className={styles.kioskToggle}
+            onClick={onToggleKioskMode}
+            tooltip="Enable kiosk mode"
+          />
+        )}
         {!contextSrv.user.isSignedIn && <SignInLink />}
         {config.featureToggles.inviteUserExperimental && <InviteUserButton />}
         {profileNode && <ProfileButton profileNode={profileNode} />}
+        {/* Pulse UI: keeps these buttons clear of the viewer's close button, which sits over this corner */}
+        {inPulseDashboardViewer && <div className={styles.pulseCloseButtonSpace} />}
       </Stack>
     </div>
   );
@@ -135,10 +134,15 @@ const getStyles = (theme: GrafanaTheme2, menuDockedAndOpen: boolean) => {
       ...(customHeader
         ? {
             color: headerTextColor,
-            '& a, & span, & svg, & button, & [class*="breadcrumbs"]': {
-              color: `${headerTextColor} !important`,
+            // The time picker popup keeps the theme's colors, the header text color is unreadable on a light theme
+            [TIME_PICKER_CONTENT_SELECTOR]: {
+              color: theme.colors.text.primary,
             },
-            '& button': {
+            [`& a${NOT_IN_TIME_PICKER_CONTENT}, & span${NOT_IN_TIME_PICKER_CONTENT}, & svg${NOT_IN_TIME_PICKER_CONTENT}, & button${NOT_IN_TIME_PICKER_CONTENT}, & [class*="breadcrumbs"]${NOT_IN_TIME_PICKER_CONTENT}`]:
+              {
+                color: `${headerTextColor} !important`,
+              },
+            [`& button${NOT_IN_TIME_PICKER_CONTENT}`]: {
               color: `${headerTextColor} !important`,
               '&:hover': {
                 backgroundColor: 'rgba(255, 255, 255, 0.15) !important',
@@ -169,6 +173,10 @@ const getStyles = (theme: GrafanaTheme2, menuDockedAndOpen: boolean) => {
       [theme.breakpoints.down('lg')]: {
         display: 'none',
       },
+    }),
+    pulseCloseButtonSpace: css({
+      flexShrink: 0,
+      width: theme.spacing(6),
     }),
   };
 };

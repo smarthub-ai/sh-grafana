@@ -5,7 +5,7 @@ import { GrafanaTheme2 } from '@grafana/data';
 import { Components } from '@grafana/e2e-selectors';
 import { Stack, useStyles2 } from '@grafana/ui';
 
-import { TOP_BAR_LEVEL_HEIGHT } from '../types';
+import { NOT_IN_TIME_PICKER_CONTENT, TIME_PICKER_CONTENT_SELECTOR, TOP_BAR_LEVEL_HEIGHT } from '../types';
 
 export function SingleTopBarActions({ children }: PropsWithChildren) {
   const styles = useStyles2(getStyles);
@@ -36,10 +36,15 @@ const getStyles = (theme: GrafanaTheme2) => {
       ...(customHeader
         ? {
             color: headerTextColor,
-            '& a, & span, & svg, & button, & [class*="Button"]': {
-              color: `${headerTextColor} !important`,
+            // The time picker popup keeps the theme's colors, the header text color is unreadable on a light theme
+            [TIME_PICKER_CONTENT_SELECTOR]: {
+              color: theme.colors.text.primary,
             },
-            '& button': {
+            [`& a${NOT_IN_TIME_PICKER_CONTENT}, & span${NOT_IN_TIME_PICKER_CONTENT}, & svg${NOT_IN_TIME_PICKER_CONTENT}, & button${NOT_IN_TIME_PICKER_CONTENT}, & [class*="Button"]${NOT_IN_TIME_PICKER_CONTENT}`]:
+              {
+                color: `${headerTextColor} !important`,
+              },
+            [`& button${NOT_IN_TIME_PICKER_CONTENT}`]: {
               color: `${headerTextColor} !important`,
               '&:hover': {
                 backgroundColor: 'rgba(255, 255, 255, 0.15) !important',

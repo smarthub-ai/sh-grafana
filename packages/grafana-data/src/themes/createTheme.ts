@@ -47,6 +47,24 @@ function getCustomThemeConfig(): CustomThemeConfig | undefined {
   return g.grafanaBootData?.settings?.customTheme || g.window?.grafanaBootData?.settings?.customTheme;
 }
 
+// Webpack DefinePlugin replaces these process.env reads at build time, but a browser has no `process`, so a
+// `typeof process` guard would always be false there. try/catch covers bundles built without the define.
+function isEnvThemeEnabled(): boolean {
+  try {
+    // Cast avoids a TS2367 comparison error, DefinePlugin replaces the value with a boolean
+    return (
+      (process.env.ENABLE_THEME as unknown) === true ||
+      process.env.ENABLE_THEME === 'true' ||
+      process.env.ENABLE_THEME === '1' ||
+      (process.env.enable_theme as unknown) === true ||
+      process.env.enable_theme === 'true' ||
+      process.env.enable_theme === '1'
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** @internal */
 export function createTheme(options: NewThemeOptions = {}): GrafanaTheme2 {
   const {
@@ -61,18 +79,7 @@ export function createTheme(options: NewThemeOptions = {}): GrafanaTheme2 {
 
   // Apply custom theme configuration overrides when theme customization is enabled
   const customConfig = getCustomThemeConfig();
-  // Safe environment check compatible with Node.js and Webpack DefinePlugin (avoids TS2367 comparison error)
-  const isEnvTheme =
-    typeof process !== 'undefined' &&
-    Boolean(
-      (process.env.ENABLE_THEME as unknown) === true ||
-        process.env.ENABLE_THEME === 'true' ||
-        process.env.ENABLE_THEME === '1' ||
-        (process.env.enable_theme as unknown) === true ||
-        process.env.enable_theme === 'true' ||
-        process.env.enable_theme === '1'
-    );
-  const isThemeEnabled = isEnvTheme || Boolean(customConfig?.enabled);
+  const isThemeEnabled = isEnvThemeEnabled() || Boolean(customConfig?.enabled);
 
   // Default custom theme colors from design specifications (Images 3, 4, 5) and defaults.ini
   const defaultThemeColors = {

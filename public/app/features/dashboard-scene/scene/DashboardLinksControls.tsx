@@ -7,7 +7,7 @@ import {
   DashboardLinkButton,
   DashboardLinksDashboard,
 } from 'app/features/dashboard/components/SubMenu/DashboardLinksDashboard';
-import { getLinkSrv } from 'app/features/panel/panellinks/link_srv';
+import { getDashboardLinkTarget, getLinkSrv } from 'app/features/panel/panellinks/link_srv';
 
 import { LINK_ICON_MAP } from '../settings/links/utils';
 
@@ -42,7 +42,8 @@ export function DashboardLinksControls({ links, dashboard }: Props) {
           <DashboardLinkButton
             icon={icon}
             href={sanitizeUrl(linkInfo.href)}
-            target={link.targetBlank ? '_blank' : undefined}
+            // Pulse UI: /ui/#/... dashboard links open in the top window
+            target={getDashboardLinkTarget(link, linkInfo.href)}
             rel="noreferrer"
             data-testid={selectors.components.DashboardLinks.link}
           >

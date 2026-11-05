@@ -488,11 +488,19 @@ export const getLinksSupplier =
         href = locationUtil.processUrl(href);
       }
 
+      // Pulse UI: dashboard drill-down links open through /ui/#/(ops/flow-intelligence/)insights/d/...
+      // A target is required so Grafana's link interceptor does not push the url into its own router
+      // and, when embedded, the Pulse UI page loads in the top window instead of inside the iframe.
+      const pulseUiHref = href ? locationUtil.assurePulseUiUrl(href) : href;
+      const isPulseUiLink = pulseUiHref !== href;
+      href = pulseUiHref;
+      const linkTarget = link.targetBlank ? '_blank' : isPulseUiLink ? '_top' : undefined;
+
       if (link.onClick) {
         linkModel = {
           href,
           title: replaceVariables(link.title || '', dataLinkScopedVars),
-          target: link.targetBlank ? '_blank' : undefined,
+          target: linkTarget,
           onClick: (evt: MouseEvent, origin: Field) => {
             link.onClick!({
               origin: origin ?? field,
@@ -507,7 +515,7 @@ export const getLinksSupplier =
         linkModel = {
           href,
           title: replaceVariables(link.title || '', dataLinkScopedVars),
-          target: link.targetBlank ? '_blank' : undefined,
+          target: linkTarget,
           origin: field,
           oneClick: link.oneClick ?? false,
         };

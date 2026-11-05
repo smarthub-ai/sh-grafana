@@ -11,6 +11,7 @@ import {
   InterpolateFunction,
   KeyValue,
   LinkModel,
+  LinkTarget,
   locationUtil,
   ScopedVars,
   textUtil,
@@ -250,6 +251,18 @@ export interface LinkService {
   getLinkUrl: (link: DashboardLink) => string;
 }
 
+/**
+ * Pulse UI: target for a dashboard link. Links rewritten to /ui/#/... open in the top window, since
+ * without a target Grafana's link interceptor pushes them into its own router (and inside the iframe
+ * Pulse UI would load in the frame). Links set to open in a new tab are unchanged.
+ */
+export const getDashboardLinkTarget = (link: DashboardLink, href: string): LinkTarget => {
+  if (link.targetBlank) {
+    return '_blank';
+  }
+  return locationUtil.isPulseUiUrl(href) ? '_top' : undefined;
+};
+
 export class LinkSrv implements LinkService {
   getLinkUrl(link: DashboardLink) {
     let url = link.url ?? '';
@@ -264,6 +277,8 @@ export class LinkSrv implements LinkService {
 
     url = getTemplateSrv().replace(url);
     url = locationUtil.assureBaseUrl(url);
+    // Pulse UI: dashboard links open through /ui/#/(ops/flow-intelligence/)insights/d/...
+    url = locationUtil.assurePulseUiUrl(url);
 
     return getConfig().disableSanitizeHtml ? url : textUtil.sanitizeUrl(url);
   }
@@ -304,6 +319,14 @@ export class LinkSrv implements LinkService {
     if (replaceVariables) {
       info.href = replaceVariables(info.href, undefined, VariableFormatID.UriEncode);
       info.title = replaceVariables(link.title);
+    }
+
+    // Pulse UI: panel drill-down links to a dashboard open through /ui/#/(ops/flow-intelligence/)insights/d/...
+    // in the top window ('_self' would load Pulse UI inside the Grafana iframe), unless set to open in a new tab.
+    const pulseUiHref = locationUtil.assurePulseUiUrl(info.href);
+    if (pulseUiHref !== info.href) {
+      info.href = pulseUiHref;
+      info.target = info.target === '_blank' ? '_blank' : '_top';
     }
 
     if (link.onClick) {

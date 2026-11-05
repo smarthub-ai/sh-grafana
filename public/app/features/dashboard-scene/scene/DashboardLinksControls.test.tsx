@@ -18,6 +18,8 @@ jest.mock('app/features/panel/panellinks/link_srv', () => ({
   getLinkSrv: jest.fn(() => ({
     getAnchorInfo: mockGetAnchorInfo,
   })),
+  // Pulse UI: keep the real link target helper used by the component
+  getDashboardLinkTarget: jest.requireActual('app/features/panel/panellinks/link_srv').getDashboardLinkTarget,
 }));
 
 describe('DashboardLinksControls', () => {

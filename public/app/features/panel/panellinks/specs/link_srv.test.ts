@@ -10,7 +10,7 @@ import { createQueryVariableAdapter } from 'app/features/variables/query/adapter
 
 import { initTemplateSrv } from '../../../../../test/helpers/initTemplateSrv';
 import { updateConfig } from '../../../../core/config';
-import { getDataFrameVars, LinkSrv } from '../link_srv';
+import { getDashboardLinkTarget, getDataFrameVars, LinkSrv } from '../link_srv';
 
 jest.mock('app/core/core', () => ({
   appEvents: {
@@ -148,6 +148,47 @@ describe('linkSrv', () => {
         }
       );
     });
+
+    // Pulse UI: dashboard drill-down links open through /ui/#/insights/d/... in the top window
+    describe('Building dashboard links for Pulse UI', () => {
+      beforeEach(() => {
+        locationUtil.initialize({
+          config: { appSubUrl: '/insights' } as GrafanaConfig,
+          getVariablesUrlParams: jest.fn(),
+          getTimeRangeForUrl: jest.fn(),
+        });
+      });
+
+      afterEach(() => {
+        locationUtil.initialize({
+          config: { appSubUrl: '' } as GrafanaConfig,
+          getVariablesUrlParams: jest.fn(),
+          getTimeRangeForUrl: jest.fn(),
+        });
+      });
+
+      it.each`
+        targetBlank  | expectedTarget
+        ${undefined} | ${'_top'}
+        ${false}     | ${'_top'}
+        ${true}      | ${'_blank'}
+      `(
+        "rewrites '/d/XXX' to '/ui/#/insights/d/XXX' with target '$expectedTarget' when targetBlank is '$targetBlank'",
+        ({ targetBlank, expectedTarget }) => {
+          const link = linkSrv.getDataLinkUIModel({ title: 'Any title', url: '/d/XXX', targetBlank }, (v) => v, {});
+
+          expect(link.href).toBe('/ui/#/insights/d/XXX');
+          expect(link.target).toBe(expectedTarget);
+        }
+      );
+
+      it('leaves non dashboard links unchanged', () => {
+        const link = linkSrv.getDataLinkUIModel({ title: 'Any title', url: '/explore' }, (v) => v, {});
+
+        expect(link.href).toBe('/insights/explore');
+        expect(link.target).toBeUndefined();
+      });
+    });
   });
 
   describe('getAnchorInfo', () => {
@@ -259,6 +300,40 @@ describe('linkSrv', () => {
       });
 
       expect(linkSrv.getLinkUrl(anchorInfo)).toBe(anchorInfo.url);
+    });
+
+    // Pulse UI: dashboard header links open through /ui/#/insights/d/... in the top window
+    it('rewrites dashboard links for Pulse UI and opens them in the top window', () => {
+      locationUtil.initialize({
+        config: { appSubUrl: '/insights' } as GrafanaConfig,
+        getVariablesUrlParams: jest.fn(),
+        getTimeRangeForUrl: jest.fn(),
+      });
+      const link: DashboardLink = {
+        url: '/insights/d/XXX/my-dash',
+        asDropdown: false,
+        icon: 'external link',
+        targetBlank: false,
+        includeVars: false,
+        keepTime: false,
+        tags: [],
+        title: 'Visit dashboard',
+        tooltip: 'Visit dashboard',
+        type: 'link',
+      };
+
+      const href = linkSrv.getLinkUrl(link);
+
+      expect(href).toBe('/ui/#/insights/d/XXX/my-dash');
+      expect(getDashboardLinkTarget(link, href)).toBe('_top');
+      expect(getDashboardLinkTarget({ ...link, targetBlank: true }, href)).toBe('_blank');
+      expect(getDashboardLinkTarget(link, '/insights/graph')).toBeUndefined();
+
+      locationUtil.initialize({
+        config: { appSubUrl: '' } as GrafanaConfig,
+        getVariablesUrlParams: jest.fn(),
+        getTimeRangeForUrl: jest.fn(),
+      });
     });
   });
 });
